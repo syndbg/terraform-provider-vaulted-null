@@ -9,22 +9,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
 
-// Coffee -
-type Coffee struct {
-	ID          int                 `db:"id" json:"id"`
-	Name        string              `db:"name" json:"name"`
-	Teaser      string              `db:"teaser" json:"teaser"`
-	Description string              `db:"description" json:"description"`
-	Price       float64             `db:"price" json:"price"`
-	Image       string              `db:"image" json:"image"`
-	Ingredients []CoffeeIngredients `json:"ingredients"`
-}
-
-// CoffeeIngredients -
-type CoffeeIngredients struct {
-	ID int `json:"id"`
-}
-
 func dataSourceCoffees() *schema.Resource {
 	return &schema.Resource{
 		Read: dataSourceCoffeesRead,

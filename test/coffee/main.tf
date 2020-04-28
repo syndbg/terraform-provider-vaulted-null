@@ -1,4 +1,7 @@
-provider "hashicups" {}
+variable "coffee_name" {
+  type    = string
+  default = "Packer Spiced Latte"
+}
 
 data "hashicups_coffees" "all" {}
 
@@ -8,10 +11,10 @@ output "all_coffees" {
 }
 
 # Only returns packer spiced latte
-output "psl" {
+output "coffee" {
   value = {
     for coffee in data.hashicups_coffees.all.coffees :
     coffee.id => coffee
-    if coffee.name == "Packer Spiced Latte"
+    if coffee.name == var.coffee_name
   }
 }
