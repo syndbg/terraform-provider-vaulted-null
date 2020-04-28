@@ -1,4 +1,7 @@
-provider "hashicups" {}
+provider "hashicups" {
+  username = "dos"
+  password = "test123"
+}
 
 module "psl" {
   source = "./coffee"

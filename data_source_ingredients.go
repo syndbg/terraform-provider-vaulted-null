@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -56,18 +55,21 @@ func dataSourceIngredients() *schema.Resource {
 }
 
 func dataSourceIngredientsRead(d *schema.ResourceData, m interface{}) error {
-	var client = &http.Client{Timeout: 10 * time.Second}
-
 	coffeeID := d.Get("coffee_id").(int)
 	cID := strconv.Itoa(coffeeID)
 
-	log.Printf("==%+v", cID)
+	var client = &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:9090/coffees/%s/ingredients", cID), nil)
+	if err != nil {
+		return err
+	}
 
-	r, err := client.Get(fmt.Sprintf("http://localhost:9090/coffees/%s/ingredients", cID))
+	r, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer r.Body.Close()
+
 	ingredients := make([]map[string]interface{}, 0)
 
 	ings := []Ingredient{}

@@ -1,6 +1,6 @@
 variable "coffee_name" {
   type    = string
-  default = "Packer Spiced Latte"
+  default = "Vagrante espresso"
 }
 
 data "hashicups_coffees" "all" {}
