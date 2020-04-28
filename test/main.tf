@@ -20,3 +20,10 @@ data "hashicups_ingredients" "psl" {
 output "psl_i" {
   value = data.hashicups_ingredients.psl
 }
+
+resource "hashicups_order" "first" {
+  item {
+    coffee_id = 2
+    quantity  = 2
+  }
+}

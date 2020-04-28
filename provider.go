@@ -25,6 +25,9 @@ func Provider() *schema.Provider {
 				Sensitive: true,
 			},
 		},
+		ResourcesMap: map[string]*schema.Resource{
+			"hashicups_order": resourceOrder(),
+		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"hashicups_coffees":     dataSourceCoffees(),
 			"hashicups_ingredients": dataSourceIngredients(),
@@ -64,7 +67,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 			Password: "test123",
 		})
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		// authenticate
@@ -82,7 +85,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		// parse response body
