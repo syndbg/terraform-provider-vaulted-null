@@ -70,14 +70,13 @@ func dataSourceCoffeesRead(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	r, err := c.Client.Do(req)
+	body, err := c.doRequest(req, false)
 	if err != nil {
 		return err
 	}
-	defer r.Body.Close()
 
 	coffees := make([]map[string]interface{}, 0)
-	err = json.NewDecoder(r.Body).Decode(&coffees)
+	err = json.Unmarshal(body, &coffees)
 	if err != nil {
 		return err
 	}

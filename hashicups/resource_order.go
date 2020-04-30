@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -105,15 +104,7 @@ func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	req.Header.Set("Authorization", c.Token)
-
-	r, err := c.Client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer r.Body.Close()
-
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := c.doRequest(req, false)
 	if err != nil {
 		return err
 	}
@@ -204,15 +195,7 @@ func updateOrder(orderID string, d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	req.Header.Set("Authorization", c.Token)
-
-	r, err := c.Client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer r.Body.Close()
-
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := c.doRequest(req, false)
 	if err != nil {
 		return err
 	}
@@ -236,15 +219,7 @@ func resourceOrderDelete(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	req.Header.Set("Authorization", c.Token)
-
-	r, err := c.Client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer r.Body.Close()
-
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := c.doRequest(req, false)
 	if err != nil {
 		return err
 	}

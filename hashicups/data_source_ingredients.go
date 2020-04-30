@@ -55,16 +55,15 @@ func dataSourceIngredientsRead(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	r, err := c.Client.Do(req)
+	body, err := c.doRequest(req, false)
 	if err != nil {
 		return err
 	}
-	defer r.Body.Close()
 
 	ingredients := make([]map[string]interface{}, 0)
 
 	ings := []Ingredient{}
-	err = json.NewDecoder(r.Body).Decode(&ings)
+	err = json.Unmarshal(body, &ings)
 	if err != nil {
 		return err
 	}

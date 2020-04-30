@@ -7,6 +7,29 @@ import (
 	"net/http"
 )
 
+func (c *Config) doRequest(req *http.Request, auth bool) ([]byte, error) {
+	if auth {
+		req.Header.Set("Authorization", c.Token)
+	}
+
+	res, err := c.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status: %d, body: %s", res.StatusCode, body)
+	}
+
+	return body, err
+}
+
 func getOrderItems(orderID string, m interface{}) ([]interface{}, error) {
 	c := m.(*Config)
 
@@ -15,16 +38,7 @@ func getOrderItems(orderID string, m interface{}) ([]interface{}, error) {
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", c.Token)
-
-	r, err := c.Client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Body.Close()
-
-	// parse response body
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := c.doRequest(req, true)
 	if err != nil {
 		return nil, err
 	}

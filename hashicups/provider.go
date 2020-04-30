@@ -3,7 +3,6 @@ package hashicups
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -50,8 +49,8 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	if (username != "") && (password != "") {
 		// form request body
 		rb, err := json.Marshal(AuthStruct{
-			Username: "dos",
-			Password: "test123",
+			Username: username,
+			Password: password,
 		})
 		if err != nil {
 			return nil, err
@@ -63,13 +62,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 			return nil, err
 		}
 
-		r, err := c.Client.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		defer r.Body.Close()
-
-		body, err := ioutil.ReadAll(r.Body)
+		body, err := c.doRequest(req, false)
 		if err != nil {
 			return nil, err
 		}
