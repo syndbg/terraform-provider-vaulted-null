@@ -27,3 +27,8 @@ resource "hashicups_order" "first" {
     quantity  = 2
   }
 }
+
+output "order" {
+  value = hashicups_order.first
+}
+

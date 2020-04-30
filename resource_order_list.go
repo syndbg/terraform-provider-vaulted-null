@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -264,6 +265,32 @@ func flattenCoffee(coffee Coffee) []interface{} {
 }
 
 func resourceOrderDelete(d *schema.ResourceData, m interface{}) error {
+	config := m.(*Config)
+	orderID := d.Id()
+
+	var client = &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("http://localhost:9090/orders/%s", orderID), nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", config.Token)
+
+	r, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+
+	if string(body) != "Deleted order" {
+		return errors.New(string(body))
+	}
+
 	d.SetId("")
 	return nil
 }
