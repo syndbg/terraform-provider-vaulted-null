@@ -51,9 +51,9 @@ type AuthStruct struct {
 
 // AuthResponse -
 type AuthResponse struct {
-	UserID   int    `json:"user_id,omitempty`
-	Username string `json:"username,omitempty`
-	Token    string `json:"token,omitempty"`
+	UserID   int    `json:"user_id`
+	Username string `json:"username`
+	Token    string `json:"token"`
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {

@@ -17,23 +17,26 @@ func resourceOrder() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceOrderCreate,
 		Read:   resourceOrderRead,
+		Update: resourceOrderUpdate,
 		Delete: resourceOrderDelete,
 		Schema: map[string]*schema.Schema{
+			"last_updated": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
+			},
 			"item": &schema.Schema{
 				Type:     schema.TypeList,
 				Required: true,
-				ForceNew: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"coffee_id": &schema.Schema{
 							Type:     schema.TypeInt,
 							Required: true,
-							ForceNew: true,
 						},
 						"quantity": &schema.Schema{
 							Type:     schema.TypeInt,
 							Required: true,
-							ForceNew: true,
 						},
 					},
 				},
@@ -144,7 +147,7 @@ func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
 
 	rb, err := json.Marshal(ois)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	var client = &http.Client{Timeout: 10 * time.Second}
@@ -192,7 +195,6 @@ func resourceOrderRead(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	// parse response body
 	return nil
 }
 
@@ -213,6 +215,7 @@ func getOrder(orderID string, m interface{}) (map[string]interface{}, error) {
 	}
 	defer r.Body.Close()
 
+	// parse response body
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return nil, err
@@ -262,6 +265,86 @@ func flattenCoffee(coffee Coffee) []interface{} {
 	c["image"] = coffee.Image
 
 	return []interface{}{c}
+}
+
+func resourceOrderUpdate(d *schema.ResourceData, m interface{}) error {
+	// Enable partial state mode
+	d.Partial(true)
+
+	if d.HasChange("item") {
+		orderID := d.Id()
+
+		// Try updating the order
+		if err := updateOrder(orderID, d, m); err != nil {
+			return err
+		}
+
+		d.SetPartial("last_updated")
+
+		d.Set("last_updated", time.Now().Format(time.RFC850))
+
+		d.Set("item", d.Get("item").([]interface{}))
+
+		// return nil
+	}
+
+	d.Partial(false)
+
+	d.Set("item", d.Get("item").([]interface{}))
+
+	return resourceOrderRead(d, m)
+}
+
+func updateOrder(orderID string, d *schema.ResourceData, m interface{}) error {
+	config := m.(*Config)
+	items := d.Get("item").([]interface{})
+	ois := []OrderItem{}
+
+	for _, item := range items {
+		i := item.(map[string]interface{})
+
+		oi := OrderItem{
+			Coffee: Coffee{
+				ID: i["coffee_id"].(int),
+			},
+			Quantity: i["quantity"].(int),
+		}
+
+		ois = append(ois, oi)
+	}
+
+	rb, err := json.Marshal(ois)
+	if err != nil {
+		return error
+	}
+
+	var client = &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("PUT", fmt.Sprintf("http://localhost:9090/orders/%s", orderID), strings.NewReader(string(rb)))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", config.Token)
+
+	r, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+
+	// parse response body
+	o := Order{}
+	err = json.Unmarshal(body, &o)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func resourceOrderDelete(d *schema.ResourceData, m interface{}) error {

@@ -20,7 +20,7 @@ package main
 // 		Delete: resourceOrderDelete,
 // 		Schema: map[string]*schema.Schema{
 // 			"item": &schema.Schema{
-// 				Type:     schema.TypeList,
+// 				Type:     schema.TypeSet,
 // 				Required: true,
 // 				ForceNew: true,
 // 				Elem: &schema.Resource{
@@ -118,7 +118,7 @@ package main
 
 // 	rb, err := json.Marshal(ois)
 // 	if err != nil {
-// 		panic(err)
+// 		return err
 // 	}
 
 // 	var client = &http.Client{Timeout: 10 * time.Second}
@@ -166,7 +166,6 @@ package main
 // 		return err
 // 	}
 
-// 	// parse response body
 // 	return nil
 // }
 
@@ -187,6 +186,7 @@ package main
 // 	}
 // 	defer r.Body.Close()
 
+// 	// parse response body
 // 	body, err := ioutil.ReadAll(r.Body)
 // 	if err != nil {
 // 		return nil, err
