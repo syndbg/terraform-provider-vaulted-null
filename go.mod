@@ -1,4 +1,4 @@
-module github.com/hashicorp/terraform-hashicups-provider
+module github.com/hashicorp/terraform-provider-hashicups
 
 go 1.13
 
