@@ -21,25 +21,30 @@ data "hashicups_ingredients" "psl" {
 #   value = data.hashicups_ingredients.psl
 # }
 
-resource "hashicups_order" "first" {
-  item {
-    coffee_id = 1
-    quantity  = 4
+resource "hashicups_order" "new" {
+  items {
+    coffee {
+      id = 3
+    }
+    quantity = 4
   }
-  item {
-    coffee_id = 2
-    quantity  = 2
+  items {
+    coffee {
+      id = 2
+    }
+    quantity = 2
   }
 }
 
-data "hashicups_order" "twenty_eight" {
-  order_id = 28
+output "new_order" {
+  value = hashicups_order.new
 }
 
-# output "first_order" {
-#   value = hashicups_order.first
+
+# data "hashicups_order" "twenty_eight" {
+#   id = 36
 # }
 
-output "twenty_eighth_order" {
-  value = data.hashicups_order.twenty_eight
-}
+# output "twenty_eighth_order" {
+#   value = data.hashicups_order.twenty_eight
+# }

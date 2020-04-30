@@ -1,4 +1,4 @@
-package main
+package hashicups
 
 // import (
 // 	"encoding/json"

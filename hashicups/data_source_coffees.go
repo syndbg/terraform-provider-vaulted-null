@@ -1,7 +1,8 @@
-package main
+package hashicups
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -62,13 +63,14 @@ func dataSourceCoffees() *schema.Resource {
 }
 
 func dataSourceCoffeesRead(d *schema.ResourceData, m interface{}) error {
-	var client = &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", "http://localhost:9090/coffees", nil)
+	c := m.(*Config)
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/coffees", c.Host), nil)
 	if err != nil {
 		return err
 	}
 
-	r, err := client.Do(req)
+	r, err := c.Client.Do(req)
 	if err != nil {
 		return err
 	}

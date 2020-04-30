@@ -8,10 +8,10 @@ go build -o terraform-provider-hashicups
 
 ## Test sample configuration
 
-First, build the provider in `test` directory.
+First, build the provider in `example` directory.
 
 ```shell
-go build -o test/terraform-provider-hashicups
+go build -o example/terraform-provider-hashicups
 ```
 
 Then, run the following command to initialize the workspace and apply the sample configuration.

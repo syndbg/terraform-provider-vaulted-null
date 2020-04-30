@@ -1,7 +1,8 @@
-package main
+package hashicups
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -42,6 +43,8 @@ type Config struct {
 	UserID   string
 	Username string
 	Token    string
+	Host     string
+	Client   *http.Client
 }
 
 // AuthStruct -
@@ -61,6 +64,11 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
 
+	c := Config{
+		Host:   "http://localhost:9090",
+		Client: &http.Client{Timeout: 10 * time.Second},
+	}
+
 	if (username != "") && (password != "") {
 		// form request body
 		rb, err := json.Marshal(AuthStruct{
@@ -72,13 +80,12 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		}
 
 		// authenticate
-		var client = &http.Client{Timeout: 10 * time.Second}
-		req, err := http.NewRequest("POST", "http://localhost:9090/signin", strings.NewReader(string(rb)))
+		req, err := http.NewRequest("POST", fmt.Sprintf("%s/signin", c.Host), strings.NewReader(string(rb)))
 		if err != nil {
 			return nil, err
 		}
 
-		r, err := client.Do(req)
+		r, err := c.Client.Do(req)
 		if err != nil {
 			return nil, err
 		}
@@ -96,14 +103,16 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 			return nil, err
 		}
 
-		config := Config{
+		c = Config{
 			UserID:   strconv.Itoa(ar.UserID),
 			Username: username,
 			Token:    ar.Token,
+			Host:     c.Host,
+			Client:   c.Client,
 		}
 
-		return &config, nil
+		return &c, nil
 	}
 
-	return nil, nil
+	return &c, nil
 }

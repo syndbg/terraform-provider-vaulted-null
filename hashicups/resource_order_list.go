@@ -1,4 +1,4 @@
-package main
+package hashicups
 
 import (
 	"encoding/json"
@@ -25,78 +25,47 @@ func resourceOrder() *schema.Resource {
 				Optional: true,
 				Computed: true,
 			},
-			"item": &schema.Schema{
+			"items": &schema.Schema{
 				Type:     schema.TypeList,
 				Required: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"coffee_id": &schema.Schema{
-							Type:     schema.TypeInt,
+						"coffee": &schema.Schema{
+							Type:     schema.TypeList,
+							MaxItems: 1,
 							Required: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"id": &schema.Schema{
+										Type:     schema.TypeInt,
+										Required: true,
+									},
+									"name": &schema.Schema{
+										Type:     schema.TypeString,
+										Computed: true,
+									},
+									"teaser": &schema.Schema{
+										Type:     schema.TypeString,
+										Computed: true,
+									},
+									"description": &schema.Schema{
+										Type:     schema.TypeString,
+										Computed: true,
+									},
+									"price": &schema.Schema{
+										Type:     schema.TypeInt,
+										Computed: true,
+									},
+									"image": &schema.Schema{
+										Type:     schema.TypeString,
+										Computed: true,
+									},
+								},
+							},
 						},
 						"quantity": &schema.Schema{
 							Type:     schema.TypeInt,
 							Required: true,
-						},
-					},
-				},
-			},
-			"order": &schema.Schema{
-				Type:     schema.TypeList,
-				MaxItems: 1,
-				Computed: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"id": &schema.Schema{
-							Type:     schema.TypeInt,
-							Computed: true,
-						},
-						"items": &schema.Schema{
-							Type:     schema.TypeList,
-							MaxItems: 1,
-							Computed: true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"coffee": &schema.Schema{
-										Type:     schema.TypeList,
-										MaxItems: 1,
-										Computed: true,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"id": &schema.Schema{
-													Type:     schema.TypeInt,
-													Computed: true,
-												},
-												"name": &schema.Schema{
-													Type:     schema.TypeString,
-													Computed: true,
-												},
-												"teaser": &schema.Schema{
-													Type:     schema.TypeString,
-													Computed: true,
-												},
-												"description": &schema.Schema{
-													Type:     schema.TypeString,
-													Computed: true,
-												},
-												"price": &schema.Schema{
-													Type:     schema.TypeInt,
-													Computed: true,
-												},
-												"image": &schema.Schema{
-													Type:     schema.TypeString,
-													Computed: true,
-												},
-											},
-										},
-									},
-									"quantity": &schema.Schema{
-										Type:     schema.TypeInt,
-										Required: true,
-										ForceNew: true,
-									},
-								},
-							},
 						},
 					},
 				},
@@ -128,16 +97,19 @@ type Coffee struct {
 }
 
 func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
-	config := m.(*Config)
-	items := d.Get("item").([]interface{})
+	c := m.(*Config)
+	items := d.Get("items").([]interface{})
 	ois := []OrderItem{}
 
 	for _, item := range items {
 		i := item.(map[string]interface{})
 
+		co := i["coffee"].([]interface{})[0]
+		coffee := co.(map[string]interface{})
+
 		oi := OrderItem{
 			Coffee: Coffee{
-				ID: i["coffee_id"].(int),
+				ID: coffee["id"].(int),
 			},
 			Quantity: i["quantity"].(int),
 		}
@@ -150,15 +122,14 @@ func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	var client = &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("POST", "http://localhost:9090/orders", strings.NewReader(string(rb)))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/orders", c.Host), strings.NewReader(string(rb)))
 	if err != nil {
 		return err
 	}
 
-	req.Header.Set("Authorization", config.Token)
+	req.Header.Set("Authorization", c.Token)
 
-	r, err := client.Do(req)
+	r, err := c.Client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -186,30 +157,29 @@ func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
 func resourceOrderRead(d *schema.ResourceData, m interface{}) error {
 	orderID := d.Id()
 
-	order, err := getOrder(orderID, m)
+	items, err := getOrderItems(orderID, m)
 	if err != nil {
 		return err
 	}
 
-	if err := d.Set("order", []interface{}{order}); err != nil {
+	if err := d.Set("items", items); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func getOrder(orderID string, m interface{}) (map[string]interface{}, error) {
-	config := m.(*Config)
+func getOrderItems(orderID string, m interface{}) ([]interface{}, error) {
+	c := m.(*Config)
 
-	var client = &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:9090/orders/%s", orderID), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/orders/%s", c.Host, orderID), nil)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", config.Token)
+	req.Header.Set("Authorization", c.Token)
 
-	r, err := client.Do(req)
+	r, err := c.Client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -227,13 +197,7 @@ func getOrder(orderID string, m interface{}) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	o := make(map[string]interface{})
-	if order.ID != 0 {
-		o["id"] = order.ID
-		o["items"] = flattenOrderItems(&order.Items)
-	}
-
-	return o, nil
+	return flattenOrderItems(&order.Items), nil
 }
 
 func flattenOrderItems(orderItems *[]OrderItem) []interface{} {
@@ -268,44 +232,45 @@ func flattenCoffee(coffee Coffee) []interface{} {
 }
 
 func resourceOrderUpdate(d *schema.ResourceData, m interface{}) error {
-	// Enable partial state mode
+	orderID := d.Id()
+
+	// enable partial state mode
 	d.Partial(true)
 
-	if d.HasChange("item") {
-		orderID := d.Id()
-
-		// Try updating the order
+	if d.HasChange("items") {
 		if err := updateOrder(orderID, d, m); err != nil {
 			return err
 		}
 
 		d.SetPartial("last_updated")
-
 		d.Set("last_updated", time.Now().Format(time.RFC850))
 
-		d.Set("item", d.Get("item").([]interface{}))
+		// if err := resourceOrderRead(d, m); err != nil {
+		// 	return err
+		// }
 
 		// return nil
 	}
-
 	d.Partial(false)
-
-	d.Set("item", d.Get("item").([]interface{}))
 
 	return resourceOrderRead(d, m)
 }
 
 func updateOrder(orderID string, d *schema.ResourceData, m interface{}) error {
-	config := m.(*Config)
-	items := d.Get("item").([]interface{})
+	c := m.(*Config)
+
+	items := d.Get("items").([]interface{})
 	ois := []OrderItem{}
 
 	for _, item := range items {
 		i := item.(map[string]interface{})
 
+		co := i["coffee"].([]interface{})[0]
+		coffee := co.(map[string]interface{})
+
 		oi := OrderItem{
 			Coffee: Coffee{
-				ID: i["coffee_id"].(int),
+				ID: coffee["id"].(int),
 			},
 			Quantity: i["quantity"].(int),
 		}
@@ -318,15 +283,14 @@ func updateOrder(orderID string, d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	var client = &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("PUT", fmt.Sprintf("http://localhost:9090/orders/%s", orderID), strings.NewReader(string(rb)))
+	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/orders/%s", c.Host, orderID), strings.NewReader(string(rb)))
 	if err != nil {
 		return err
 	}
 
-	req.Header.Set("Authorization", config.Token)
+	req.Header.Set("Authorization", c.Token)
 
-	r, err := client.Do(req)
+	r, err := c.Client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -348,18 +312,17 @@ func updateOrder(orderID string, d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceOrderDelete(d *schema.ResourceData, m interface{}) error {
-	config := m.(*Config)
+	c := m.(*Config)
 	orderID := d.Id()
 
-	var client = &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("http://localhost:9090/orders/%s", orderID), nil)
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/orders/%s", c.Host, orderID), nil)
 	if err != nil {
 		return err
 	}
 
-	req.Header.Set("Authorization", config.Token)
+	req.Header.Set("Authorization", c.Token)
 
-	r, err := client.Do(req)
+	r, err := c.Client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -375,5 +338,6 @@ func resourceOrderDelete(d *schema.ResourceData, m interface{}) error {
 	}
 
 	d.SetId("")
+
 	return nil
 }

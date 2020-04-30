@@ -1,11 +1,10 @@
-package main
+package hashicups
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
@@ -55,16 +54,16 @@ func dataSourceIngredients() *schema.Resource {
 }
 
 func dataSourceIngredientsRead(d *schema.ResourceData, m interface{}) error {
+	c := m.(*Config)
 	coffeeID := d.Get("coffee_id").(int)
 	cID := strconv.Itoa(coffeeID)
 
-	var client = &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:9090/coffees/%s/ingredients", cID), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/coffees/%s/ingredients", c.Host, cID), nil)
 	if err != nil {
 		return err
 	}
 
-	r, err := client.Do(req)
+	r, err := c.Client.Do(req)
 	if err != nil {
 		return err
 	}
