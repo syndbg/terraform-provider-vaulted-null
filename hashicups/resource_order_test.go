@@ -47,7 +47,7 @@ func testAccCheckHashicupsOrderDestroy(s *terraform.State) error {
 			return err
 		}
 
-		body, err := c.doRequest(req, false)
+		body, err := c.doRequest(req, true)
 		if err != nil {
 			return err
 		}

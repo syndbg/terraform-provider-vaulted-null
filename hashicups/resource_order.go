@@ -75,6 +75,7 @@ func resourceOrder() *schema.Resource {
 
 func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
 	c := m.(*Config)
+
 	items := d.Get("items").([]interface{})
 	ois := []OrderItem{}
 
@@ -104,7 +105,7 @@ func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	body, err := c.doRequest(req, false)
+	body, err := c.doRequest(req, true)
 	if err != nil {
 		return err
 	}
@@ -195,7 +196,7 @@ func updateOrder(orderID string, d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	body, err := c.doRequest(req, false)
+	body, err := c.doRequest(req, true)
 	if err != nil {
 		return err
 	}
@@ -219,7 +220,7 @@ func resourceOrderDelete(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	body, err := c.doRequest(req, false)
+	body, err := c.doRequest(req, true)
 	if err != nil {
 		return err
 	}
