@@ -32,7 +32,14 @@ resource "hashicups_order" "first" {
   }
 }
 
-output "first_order" {
-  value = hashicups_order.first
+data "hashicups_order" "twenty_eight" {
+  order_id = 28
 }
 
+# output "first_order" {
+#   value = hashicups_order.first
+# }
+
+output "twenty_eighth_order" {
+  value = data.hashicups_order.twenty_eight
+}

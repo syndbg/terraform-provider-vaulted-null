@@ -315,7 +315,7 @@ func updateOrder(orderID string, d *schema.ResourceData, m interface{}) error {
 
 	rb, err := json.Marshal(ois)
 	if err != nil {
-		return error
+		return err
 	}
 
 	var client = &http.Client{Timeout: 10 * time.Second}
