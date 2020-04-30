@@ -99,7 +99,7 @@ func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/orders", c.Host), strings.NewReader(string(rb)))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/orders", HostURL), strings.NewReader(string(rb)))
 	if err != nil {
 		return err
 	}
@@ -190,7 +190,7 @@ func updateOrder(orderID string, d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/orders/%s", c.Host, orderID), strings.NewReader(string(rb)))
+	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/orders/%s", HostURL, orderID), strings.NewReader(string(rb)))
 	if err != nil {
 		return err
 	}
@@ -214,7 +214,7 @@ func resourceOrderDelete(d *schema.ResourceData, m interface{}) error {
 	c := m.(*Config)
 	orderID := d.Id()
 
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/orders/%s", c.Host, orderID), nil)
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/orders/%s", HostURL, orderID), nil)
 	if err != nil {
 		return err
 	}

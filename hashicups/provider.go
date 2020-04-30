@@ -11,6 +11,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
 
+// HostURL -
+const HostURL string = "http://localhost:9090"
+
 // Provider -
 func Provider() *schema.Provider {
 	return &schema.Provider{
@@ -42,7 +45,6 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	password := d.Get("password").(string)
 
 	c := Config{
-		Host:   "http://localhost:9090",
 		Client: &http.Client{Timeout: 10 * time.Second},
 	}
 
@@ -57,7 +59,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		}
 
 		// authenticate
-		req, err := http.NewRequest("POST", fmt.Sprintf("%s/signin", c.Host), strings.NewReader(string(rb)))
+		req, err := http.NewRequest("POST", fmt.Sprintf("%s/signin", HostURL), strings.NewReader(string(rb)))
 		if err != nil {
 			return nil, err
 		}
@@ -74,13 +76,9 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 			return nil, err
 		}
 
-		c = Config{
-			UserID:   strconv.Itoa(ar.UserID),
-			Username: username,
-			Token:    ar.Token,
-			Host:     c.Host,
-			Client:   c.Client,
-		}
+		c.UserID = strconv.Itoa(ar.UserID)
+		c.Username = username
+		c.Token = ar.Token
 
 		return &c, nil
 	}

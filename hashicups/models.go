@@ -7,7 +7,6 @@ type Config struct {
 	UserID   string
 	Username string
 	Token    string
-	Host     string
 	Client   *http.Client
 }
 

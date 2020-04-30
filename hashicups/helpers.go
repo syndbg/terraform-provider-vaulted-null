@@ -33,7 +33,7 @@ func (c *Config) doRequest(req *http.Request, auth bool) ([]byte, error) {
 func getOrderItems(orderID string, m interface{}) ([]interface{}, error) {
 	c := m.(*Config)
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/orders/%s", c.Host, orderID), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/orders/%s", HostURL, orderID), nil)
 	if err != nil {
 		return nil, err
 	}

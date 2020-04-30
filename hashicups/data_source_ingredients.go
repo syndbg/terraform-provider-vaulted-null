@@ -50,7 +50,7 @@ func dataSourceIngredientsRead(d *schema.ResourceData, m interface{}) error {
 	coffeeID := d.Get("coffee_id").(int)
 	cID := strconv.Itoa(coffeeID)
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/coffees/%s/ingredients", c.Host, cID), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/coffees/%s/ingredients", HostURL, cID), nil)
 	if err != nil {
 		return err
 	}
