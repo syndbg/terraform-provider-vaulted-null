@@ -9,14 +9,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
 
-// Ingredient -
-type Ingredient struct {
-	ID       int    `json:"id"`
-	Name     string `json:"name"`
-	Quantity int    `json:"quantity"`
-	Unit     string `json:"unit"`
-}
-
 func dataSourceIngredients() *schema.Resource {
 	return &schema.Resource{
 		Read: dataSourceIngredientsRead,
