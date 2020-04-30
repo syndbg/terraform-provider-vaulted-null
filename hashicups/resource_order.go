@@ -1,244 +1,259 @@
 package hashicups
 
-// import (
-// 	"encoding/json"
-// 	"fmt"
-// 	"log"
-// 	"io/ioutil"
-// 	"net/http"
-// 	"strconv"
-// 	"strings"
-// 	"time"
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
-// 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-// )
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+)
 
-// func resourceOrder() *schema.Resource {
-// 	return &schema.Resource{
-// 		Create: resourceOrderCreate,
-// 		Read:   resourceOrderRead,
-// 		Delete: resourceOrderDelete,
-// 		Schema: map[string]*schema.Schema{
-// 			"item": &schema.Schema{
-// 				Type:     schema.TypeSet,
-// 				Required: true,
-// 				ForceNew: true,
-// 				Elem: &schema.Resource{
-// 					Schema: map[string]*schema.Schema{
-// 						"coffee_id": &schema.Schema{
-// 							Type:     schema.TypeInt,
-// 							Required: true,
-// 							ForceNew: true,
-// 						},
-// 						"quantity": &schema.Schema{
-// 							Type:     schema.TypeInt,
-// 							Required: true,
-// 							ForceNew: true,
-// 						},
-// 					},
-// 				},
-// 			},
-// 			"order": &schema.Schema{
-// 				Type:     schema.TypeList,
-// 				MaxItems: 1,
-// 				Computed: true,
-// 				Elem: &schema.Resource{
-// 					Schema: map[string]*schema.Schema{
-// 						"id": &schema.Schema{
-// 							Type:     schema.TypeInt,
-// 							Computed: true,
-// 						},
-// 						"items": &schema.Schema{
-// 							Type:     schema.TypeList,
-// 							MaxItems: 1,
-// 							Computed: true,
-// 							Elem: &schema.Resource{
-// 								Schema: map[string]*schema.Schema{
-// 									"coffee": &schema.Schema{
-// 										Type:     schema.TypeMap,
-// 										Computed: true,
-// 										Elem: &schema.Schema{
-// 											Type: schema.TypeString,
-// 										},
-// 									},
-// 									"quantity": &schema.Schema{
-// 										Type:     schema.TypeInt,
-// 										Required: true,
-// 										ForceNew: true,
-// 									},
-// 								},
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
-// }
+func resourceOrder() *schema.Resource {
+	return &schema.Resource{
+		Create: resourceOrderCreate,
+		Read:   resourceOrderRead,
+		Update: resourceOrderUpdate,
+		Delete: resourceOrderDelete,
+		Schema: map[string]*schema.Schema{
+			"last_updated": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
+			},
+			"items": &schema.Schema{
+				Type:     schema.TypeList,
+				Required: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"coffee": &schema.Schema{
+							Type:     schema.TypeList,
+							MaxItems: 1,
+							Required: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"id": &schema.Schema{
+										Type:     schema.TypeInt,
+										Required: true,
+									},
+									"name": &schema.Schema{
+										Type:     schema.TypeString,
+										Computed: true,
+									},
+									"teaser": &schema.Schema{
+										Type:     schema.TypeString,
+										Computed: true,
+									},
+									"description": &schema.Schema{
+										Type:     schema.TypeString,
+										Computed: true,
+									},
+									"price": &schema.Schema{
+										Type:     schema.TypeInt,
+										Computed: true,
+									},
+									"image": &schema.Schema{
+										Type:     schema.TypeString,
+										Computed: true,
+									},
+								},
+							},
+						},
+						"quantity": &schema.Schema{
+							Type:     schema.TypeInt,
+							Required: true,
+						},
+					},
+				},
+			},
+		},
+	}
+}
 
-// // Order -
-// type Order struct {
-// 	ID    int         `json:"id,omitempty"`
-// 	Items []OrderItem `json:"items,omitempty"`
-// }
+func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
+	c := m.(*Config)
+	items := d.Get("items").([]interface{})
+	ois := []OrderItem{}
 
-// // OrderItem -
-// type OrderItem struct {
-// 	Coffee   Coffee `json:"coffee"`
-// 	Quantity int    `json:"quantity"`
-// }
+	for _, item := range items {
+		i := item.(map[string]interface{})
 
-// // Coffee -
-// type Coffee struct {
-// 	ID          int     `json:"id"`
-// 	Name        string  `json:"name"`
-// 	Teaser      string  `json:"teaser"`
-// 	Description string  `json:"description"`
-// 	Price       float64 `json:"price"`
-// 	Image       string  `json:"image"`
-// }
+		co := i["coffee"].([]interface{})[0]
+		coffee := co.(map[string]interface{})
 
-// func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
-// 	config := m.(*Config)
-// 	items := d.Get("item").([]interface{})
-// 	ois := []OrderItem{}
+		oi := OrderItem{
+			Coffee: Coffee{
+				ID: coffee["id"].(int),
+			},
+			Quantity: i["quantity"].(int),
+		}
 
-// 	for _, item := range items {
-// 		i := item.(map[string]interface{})
+		ois = append(ois, oi)
+	}
 
-// 		oi := OrderItem{
-// 			Coffee: Coffee{
-// 				ID: i["coffee_id"].(int),
-// 			},
-// 			Quantity: i["quantity"].(int),
-// 		}
+	rb, err := json.Marshal(ois)
+	if err != nil {
+		return err
+	}
 
-// 		ois = append(ois, oi)
-// 	}
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/orders", c.Host), strings.NewReader(string(rb)))
+	if err != nil {
+		return err
+	}
 
-// 	rb, err := json.Marshal(ois)
-// 	if err != nil {
-// 		return err
-// 	}
+	req.Header.Set("Authorization", c.Token)
 
-// 	var client = &http.Client{Timeout: 10 * time.Second}
-// 	req, err := http.NewRequest("POST", "http://localhost:9090/orders", strings.NewReader(string(rb)))
-// 	if err != nil {
-// 		return err
-// 	}
+	r, err := c.Client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
 
-// 	req.Header.Set("Authorization", config.Token)
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
 
-// 	r, err := client.Do(req)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer r.Body.Close()
+	// parse response body
+	o := Order{}
+	err = json.Unmarshal(body, &o)
+	if err != nil {
+		return err
+	}
 
-// 	body, err := ioutil.ReadAll(r.Body)
-// 	if err != nil {
-// 		return err
-// 	}
+	d.SetId(strconv.Itoa(o.ID))
 
-// 	// parse response body
-// 	o := Order{}
-// 	err = json.Unmarshal(body, &o)
-// 	if err != nil {
-// 		return err
-// 	}
+	resourceOrderRead(d, m)
 
-// 	d.SetId(strconv.Itoa(o.ID))
+	return nil
+}
 
-// 	resourceOrderRead(d, m)
+func resourceOrderRead(d *schema.ResourceData, m interface{}) error {
+	orderID := d.Id()
 
-// 	return nil
-// }
+	items, err := getOrderItems(orderID, m)
+	if err != nil {
+		return err
+	}
 
-// func resourceOrderRead(d *schema.ResourceData, m interface{}) error {
-// 	oID := d.Id()
+	if err := d.Set("items", items); err != nil {
+		return err
+	}
 
-// 	order, err := getOrder(oID, m)
-// 	if err != nil {
-// 		return err
-// 	}
+	return nil
+}
 
-// 	if err := d.Set("order", []interface{}{order}); err != nil {
-// 		return err
-// 	}
+func resourceOrderUpdate(d *schema.ResourceData, m interface{}) error {
+	orderID := d.Id()
 
-// 	return nil
-// }
+	// enable partial state mode
+	d.Partial(true)
 
-// func getOrder(oID string, m interface{}) (map[string]interface{}, error) {
-// 	config := m.(*Config)
+	if d.HasChange("items") {
+		if err := updateOrder(orderID, d, m); err != nil {
+			return err
+		}
 
-// 	var client = &http.Client{Timeout: 10 * time.Second}
-// 	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:9090/orders/%s", oID), nil)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+		d.SetPartial("last_updated")
+		d.Set("last_updated", time.Now().Format(time.RFC850))
 
-// 	req.Header.Set("Authorization", config.Token)
+		// if err := resourceOrderRead(d, m); err != nil {
+		// 	return err
+		// }
 
-// 	r, err := client.Do(req)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer r.Body.Close()
+		// return nil
+	}
+	d.Partial(false)
 
-// 	// parse response body
-// 	body, err := ioutil.ReadAll(r.Body)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	return resourceOrderRead(d, m)
+}
 
-// 	o := Order{}
-// 	err = json.Unmarshal(body, &o)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+func updateOrder(orderID string, d *schema.ResourceData, m interface{}) error {
+	c := m.(*Config)
 
-// 	order := make(map[string]interface{})
-// 	if o.ID != 0 {
-// 		order["id"] = o.ID
-// 		order["items"] = flattenOrderItems(&o.Items)
-// 	}
+	items := d.Get("items").([]interface{})
+	ois := []OrderItem{}
 
-// 	return order, nil
-// }
+	for _, item := range items {
+		i := item.(map[string]interface{})
 
-// func flattenOrderItems(ois *[]OrderItem) []interface{} {
-// 	if ois != nil {
-// 		orderItems := make([]interface{}, len(*ois), len(*ois))
+		co := i["coffee"].([]interface{})[0]
+		coffee := co.(map[string]interface{})
 
-// 		for i, oi := range *ois {
-// 			orderItem := make(map[string]interface{})
+		oi := OrderItem{
+			Coffee: Coffee{
+				ID: coffee["id"].(int),
+			},
+			Quantity: i["quantity"].(int),
+		}
 
-// 			orderItem["coffee"] = flattenCoffee(oi.Coffee)
-// 			orderItem["quantity"] = oi.Quantity
+		ois = append(ois, oi)
+	}
 
-// 			orderItems[i] = orderItem
-// 		}
+	rb, err := json.Marshal(ois)
+	if err != nil {
+		return err
+	}
 
-// 		return orderItems
-// 	}
+	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/orders/%s", c.Host, orderID), strings.NewReader(string(rb)))
+	if err != nil {
+		return err
+	}
 
-// 	return make([]interface{}, 0)
-// }
+	req.Header.Set("Authorization", c.Token)
 
-// func flattenCoffee(c Coffee) map[string]string {
-// 	coffee := make(map[string]string)
-// 	coffee["id"] = strconv.Itoa(c.ID)
-// 	coffee["name"] = c.Name
-// 	coffee["teaser"] = c.Teaser
-// 	coffee["description"] = c.Description
-// 	coffee["price"] = fmt.Sprintf("%f", c.Price)
-// 	coffee["image"] = c.Image
+	r, err := c.Client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
 
-// 	return coffee
-// }
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
 
-// func resourceOrderDelete(d *schema.ResourceData, m interface{}) error {
-// 	d.SetId("")
-// 	return nil
-// }
+	// parse response body
+	o := Order{}
+	err = json.Unmarshal(body, &o)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func resourceOrderDelete(d *schema.ResourceData, m interface{}) error {
+	c := m.(*Config)
+	orderID := d.Id()
+
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/orders/%s", c.Host, orderID), nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", c.Token)
+
+	r, err := c.Client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+
+	if string(body) != "Deleted order" {
+		return errors.New(string(body))
+	}
+
+	d.SetId("")
+
+	return nil
+}

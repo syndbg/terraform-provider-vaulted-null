@@ -1,5 +1,29 @@
 package hashicups
 
+import "net/http"
+
+// Config - contains provider configuration (Hashicups auth)
+type Config struct {
+	UserID   string
+	Username string
+	Token    string
+	Host     string
+	Client   *http.Client
+}
+
+// AuthStruct -
+type AuthStruct struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// AuthResponse -
+type AuthResponse struct {
+	UserID   int    `json:"user_id`
+	Username string `json:"username`
+	Token    string `json:"token"`
+}
+
 // Order -
 type Order struct {
 	ID    int         `json:"id,omitempty"`

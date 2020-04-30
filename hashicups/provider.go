@@ -38,28 +38,6 @@ func Provider() *schema.Provider {
 	}
 }
 
-// Config - contains provider configuration (Hashicups auth)
-type Config struct {
-	UserID   string
-	Username string
-	Token    string
-	Host     string
-	Client   *http.Client
-}
-
-// AuthStruct -
-type AuthStruct struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-// AuthResponse -
-type AuthResponse struct {
-	UserID   int    `json:"user_id`
-	Username string `json:"username`
-	Token    string `json:"token"`
-}
-
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
