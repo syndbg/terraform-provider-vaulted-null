@@ -3,6 +3,7 @@ package hashicups
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"testing"
 
@@ -11,7 +12,6 @@ import (
 )
 
 func TestAccHashicupsOrderBasic(t *testing.T) {
-	var items []interface{}
 	coffeeID := "1"
 	quantity := "2"
 
@@ -32,6 +32,8 @@ func TestAccHashicupsOrderBasic(t *testing.T) {
 
 func testAccCheckHashicupsOrderDestroy(s *terraform.State) error {
 	c := testAccProvider.Meta().(*Config)
+
+	log.Printf("===!!!!!= %+v", c.Token)
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "hashicups_order" {
