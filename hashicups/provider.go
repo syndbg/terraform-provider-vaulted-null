@@ -38,7 +38,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	password := d.Get("password").(string)
 
 	if (username != "") && (password != "") {
-		c, err := hashicups.NewClient(nil, nil, nil)
+		c, err := hashicups.NewClient(nil, &username, &password)
 		if err != nil {
 			return nil, err
 		}

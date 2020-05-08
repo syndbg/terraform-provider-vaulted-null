@@ -65,7 +65,7 @@ func dataSourceCoffees() *schema.Resource {
 func dataSourceCoffeesRead(d *schema.ResourceData, m interface{}) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/coffees", "http://localhost:9090"), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/coffees", "http://localhost:19090"), nil)
 	if err != nil {
 		return err
 	}
