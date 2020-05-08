@@ -1,14 +1,10 @@
 package hashicups
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
-	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
+	hc "github.com/hashicorp-demoapp/hashicups-client-go"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
 
@@ -74,10 +70,10 @@ func resourceOrder() *schema.Resource {
 }
 
 func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
-	c := m.(*Config)
+	c := m.(*hc.Client)
 
 	items := d.Get("items").([]interface{})
-	ois := []OrderItem{}
+	ois := []hc.OrderItem{}
 
 	for _, item := range items {
 		i := item.(map[string]interface{})
@@ -85,8 +81,8 @@ func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
 		co := i["coffee"].([]interface{})[0]
 		coffee := co.(map[string]interface{})
 
-		oi := OrderItem{
-			Coffee: Coffee{
+		oi := hc.OrderItem{
+			Coffee: hc.Coffee{
 				ID: coffee["id"].(int),
 			},
 			Quantity: i["quantity"].(int),
@@ -95,24 +91,7 @@ func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
 		ois = append(ois, oi)
 	}
 
-	rb, err := json.Marshal(ois)
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/orders", HostURL), strings.NewReader(string(rb)))
-	if err != nil {
-		return err
-	}
-
-	body, err := c.doRequest(req, true)
-	if err != nil {
-		return err
-	}
-
-	// parse response body
-	o := Order{}
-	err = json.Unmarshal(body, &o)
+	o, err := c.CreateOrder(ois)
 	if err != nil {
 		return err
 	}
@@ -125,28 +104,84 @@ func resourceOrderCreate(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceOrderRead(d *schema.ResourceData, m interface{}) error {
+	c := m.(*hc.Client)
+
 	orderID := d.Id()
 
-	items, err := getOrderItems(orderID, m)
+	order, err := c.GetOrder(orderID)
 	if err != nil {
 		return err
 	}
 
-	if err := d.Set("items", items); err != nil {
+	orderItems := flattenOrderItems(&order.Items)
+	if err := d.Set("items", orderItems); err != nil {
 		return err
 	}
 
 	return nil
 }
 
+func flattenOrderItems(orderItems *[]hc.OrderItem) []interface{} {
+	if orderItems != nil {
+		ois := make([]interface{}, len(*orderItems), len(*orderItems))
+
+		for i, orderItem := range *orderItems {
+			oi := make(map[string]interface{})
+
+			oi["coffee"] = flattenCoffee(orderItem.Coffee)
+			oi["quantity"] = orderItem.Quantity
+
+			ois[i] = oi
+		}
+
+		return ois
+	}
+
+	return make([]interface{}, 0)
+}
+
+func flattenCoffee(coffee hc.Coffee) []interface{} {
+	c := make(map[string]interface{})
+	c["id"] = coffee.ID
+	c["name"] = coffee.Name
+	c["teaser"] = coffee.Teaser
+	c["description"] = coffee.Description
+	c["price"] = coffee.Price
+	c["image"] = coffee.Image
+
+	return []interface{}{c}
+}
+
 func resourceOrderUpdate(d *schema.ResourceData, m interface{}) error {
+	c := m.(*hc.Client)
+
 	orderID := d.Id()
 
 	// enable partial state mode
 	d.Partial(true)
 
 	if d.HasChange("items") {
-		if err := updateOrder(orderID, d, m); err != nil {
+		items := d.Get("items").([]interface{})
+		ois := []hc.OrderItem{}
+
+		for _, item := range items {
+			i := item.(map[string]interface{})
+
+			co := i["coffee"].([]interface{})[0]
+			coffee := co.(map[string]interface{})
+
+			oi := hc.OrderItem{
+				Coffee: hc.Coffee{
+					ID: coffee["id"].(int),
+				},
+				Quantity: i["quantity"].(int),
+			}
+
+			ois = append(ois, oi)
+		}
+
+		_, err := c.UpdateOrder(orderID, ois)
+		if err != nil {
 			return err
 		}
 
@@ -164,69 +199,14 @@ func resourceOrderUpdate(d *schema.ResourceData, m interface{}) error {
 	return resourceOrderRead(d, m)
 }
 
-func updateOrder(orderID string, d *schema.ResourceData, m interface{}) error {
-	c := m.(*Config)
-
-	items := d.Get("items").([]interface{})
-	ois := []OrderItem{}
-
-	for _, item := range items {
-		i := item.(map[string]interface{})
-
-		co := i["coffee"].([]interface{})[0]
-		coffee := co.(map[string]interface{})
-
-		oi := OrderItem{
-			Coffee: Coffee{
-				ID: coffee["id"].(int),
-			},
-			Quantity: i["quantity"].(int),
-		}
-
-		ois = append(ois, oi)
-	}
-
-	rb, err := json.Marshal(ois)
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/orders/%s", HostURL, orderID), strings.NewReader(string(rb)))
-	if err != nil {
-		return err
-	}
-
-	body, err := c.doRequest(req, true)
-	if err != nil {
-		return err
-	}
-
-	// parse response body
-	o := Order{}
-	err = json.Unmarshal(body, &o)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func resourceOrderDelete(d *schema.ResourceData, m interface{}) error {
-	c := m.(*Config)
+	c := m.(*hc.Client)
+
 	orderID := d.Id()
 
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/orders/%s", HostURL, orderID), nil)
+	err := c.DeleteOrder(orderID)
 	if err != nil {
 		return err
-	}
-
-	body, err := c.doRequest(req, true)
-	if err != nil {
-		return err
-	}
-
-	if string(body) != "Deleted order" {
-		return errors.New(string(body))
 	}
 
 	d.SetId("")

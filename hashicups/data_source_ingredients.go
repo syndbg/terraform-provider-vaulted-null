@@ -1,11 +1,10 @@
 package hashicups
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"strconv"
 
+	hc "github.com/hashicorp-demoapp/hashicups-client-go"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
 
@@ -46,27 +45,17 @@ func dataSourceIngredients() *schema.Resource {
 }
 
 func dataSourceIngredientsRead(d *schema.ResourceData, m interface{}) error {
-	c := m.(*Config)
+	c := m.(*hc.Client)
+
 	coffeeID := d.Get("coffee_id").(int)
 	cID := strconv.Itoa(coffeeID)
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/coffees/%s/ingredients", HostURL, cID), nil)
-	if err != nil {
-		return err
-	}
-
-	body, err := c.doRequest(req, false)
+	ings, err := c.GetCoffeeIngredients(cID)
 	if err != nil {
 		return err
 	}
 
 	ingredients := make([]map[string]interface{}, 0)
-
-	ings := []Ingredient{}
-	err = json.Unmarshal(body, &ings)
-	if err != nil {
-		return err
-	}
 
 	for _, v := range ings {
 		ingredient := make(map[string]interface{})

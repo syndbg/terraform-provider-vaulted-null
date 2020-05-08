@@ -3,6 +3,7 @@ package hashicups
 import (
 	"strconv"
 
+	hc "github.com/hashicorp-demoapp/hashicups-client-go"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
 
@@ -64,14 +65,17 @@ func dataSourceOrder() *schema.Resource {
 }
 
 func dataSourceOrderRead(d *schema.ResourceData, m interface{}) error {
+	c := m.(*hc.Client)
+
 	orderID := strconv.Itoa(d.Get("id").(int))
 
-	items, err := getOrderItems(orderID, m)
+	order, err := c.GetOrder(orderID)
 	if err != nil {
 		return err
 	}
 
-	if err := d.Set("items", items); err != nil {
+	orderItems := flattenOrderItems(&order.Items)
+	if err := d.Set("items", orderItems); err != nil {
 		return err
 	}
 

@@ -1,12 +1,10 @@
 package hashicups
 
 import (
-	"errors"
 	"fmt"
-	"log"
-	"net/http"
 	"testing"
 
+	hc "github.com/hashicorp-demoapp/hashicups-client-go"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
@@ -31,9 +29,7 @@ func TestAccHashicupsOrderBasic(t *testing.T) {
 }
 
 func testAccCheckHashicupsOrderDestroy(s *terraform.State) error {
-	c := testAccProvider.Meta().(*Config)
-
-	log.Printf("===!!!!!= %+v", c.Token)
+	c := testAccProvider.Meta().(*hc.Client)
 
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "hashicups_order" {
@@ -42,18 +38,9 @@ func testAccCheckHashicupsOrderDestroy(s *terraform.State) error {
 
 		orderID := rs.Primary.ID
 
-		req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/orders/%s", HostURL, orderID), nil)
+		err := c.DeleteOrder(orderID)
 		if err != nil {
 			return err
-		}
-
-		body, err := c.doRequest(req, true)
-		if err != nil {
-			return err
-		}
-
-		if string(body) != "Deleted order" {
-			return errors.New(string(body))
 		}
 	}
 

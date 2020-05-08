@@ -63,20 +63,21 @@ func dataSourceCoffees() *schema.Resource {
 }
 
 func dataSourceCoffeesRead(d *schema.ResourceData, m interface{}) error {
-	c := m.(*Config)
+	client := &http.Client{Timeout: 10 * time.Second}
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/coffees", HostURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/coffees", "http://localhost:9090"), nil)
 	if err != nil {
 		return err
 	}
 
-	body, err := c.doRequest(req, false)
+	r, err := client.Do(req)
 	if err != nil {
 		return err
 	}
+	defer r.Body.Close()
 
 	coffees := make([]map[string]interface{}, 0)
-	err = json.Unmarshal(body, &coffees)
+	err = json.NewDecoder(r.Body).Decode(&coffees)
 	if err != nil {
 		return err
 	}
