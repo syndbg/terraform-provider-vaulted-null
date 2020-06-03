@@ -23,7 +23,7 @@ func dataSourceCoffees() *schema.Resource {
 							Type:     schema.TypeInt,
 							Computed: true,
 						},
-						"name": &schema.Schema{
+						"name": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},

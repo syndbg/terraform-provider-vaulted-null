@@ -22,6 +22,7 @@ func dataSourceOrder() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"coffee": &schema.Schema{
 							Type:     schema.TypeList,
+							MaxItems: 1,
 							Computed: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
@@ -82,4 +83,35 @@ func dataSourceOrderRead(d *schema.ResourceData, m interface{}) error {
 	d.SetId(orderID)
 
 	return nil
+}
+
+func flattenOrderItems(orderItems *[]hc.OrderItem) []interface{} {
+	if orderItems != nil {
+		ois := make([]interface{}, len(*orderItems), len(*orderItems))
+
+		for i, orderItem := range *orderItems {
+			oi := make(map[string]interface{})
+
+			oi["coffee"] = flattenCoffee(orderItem.Coffee)
+			oi["quantity"] = orderItem.Quantity
+
+			ois[i] = oi
+		}
+
+		return ois
+	}
+
+	return make([]interface{}, 0)
+}
+
+func flattenCoffee(coffee hc.Coffee) []interface{} {
+	c := make(map[string]interface{})
+	c["id"] = coffee.ID
+	c["name"] = coffee.Name
+	c["teaser"] = coffee.Teaser
+	c["description"] = coffee.Description
+	c["price"] = coffee.Price
+	c["image"] = coffee.Image
+
+	return []interface{}{c}
 }

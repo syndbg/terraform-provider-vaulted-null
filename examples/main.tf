@@ -9,9 +9,9 @@ module "psl" {
   coffee_name = "Packer Spiced Latte"
 }
 
-# output "psl" {
-#   value = module.psl.coffee
-# }
+output "psl" {
+  value = module.psl.coffee
+}
 
 data "hashicups_ingredients" "psl" {
   coffee_id = values(module.psl.coffee)[0].id
@@ -26,7 +26,7 @@ resource "hashicups_order" "new" {
     coffee {
       id = 3
     }
-    quantity = 4
+    quantity = 2
   }
   items {
     coffee {

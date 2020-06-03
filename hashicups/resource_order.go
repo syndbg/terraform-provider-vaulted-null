@@ -121,37 +121,6 @@ func resourceOrderRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func flattenOrderItems(orderItems *[]hc.OrderItem) []interface{} {
-	if orderItems != nil {
-		ois := make([]interface{}, len(*orderItems), len(*orderItems))
-
-		for i, orderItem := range *orderItems {
-			oi := make(map[string]interface{})
-
-			oi["coffee"] = flattenCoffee(orderItem.Coffee)
-			oi["quantity"] = orderItem.Quantity
-
-			ois[i] = oi
-		}
-
-		return ois
-	}
-
-	return make([]interface{}, 0)
-}
-
-func flattenCoffee(coffee hc.Coffee) []interface{} {
-	c := make(map[string]interface{})
-	c["id"] = coffee.ID
-	c["name"] = coffee.Name
-	c["teaser"] = coffee.Teaser
-	c["description"] = coffee.Description
-	c["price"] = coffee.Price
-	c["image"] = coffee.Image
-
-	return []interface{}{c}
-}
-
 func resourceOrderUpdate(d *schema.ResourceData, m interface{}) error {
 	c := m.(*hc.Client)
 
@@ -192,6 +161,11 @@ func resourceOrderUpdate(d *schema.ResourceData, m interface{}) error {
 		// 	return err
 		// }
 
+		// Only last_updated attribute will be set, the resource state
+		// will revert since neither of the following options are true.
+		// 1. SetPartial("items") wasn't called
+		// 2. The function returned before d.Partial(false) was called
+
 		// return nil
 	}
 	d.Partial(false)
@@ -209,6 +183,8 @@ func resourceOrderDelete(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
+	// d.SetId("") is automatically called assuming delete returns no errors, but
+	// it is added here for explicitness.
 	d.SetId("")
 
 	return nil
