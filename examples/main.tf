@@ -12,39 +12,3 @@ module "psl" {
 output "psl" {
   value = module.psl.coffee
 }
-
-data "hashicups_ingredients" "psl" {
-  coffee_id = values(module.psl.coffee)[0].id
-}
-
-# output "psl_i" {
-#   value = data.hashicups_ingredients.psl
-# }
-
-resource "hashicups_order" "new" {
-  items {
-    coffee {
-      id = 3
-    }
-    quantity = 2
-  }
-  items {
-    coffee {
-      id = 2
-    }
-    quantity = 2
-  }
-}
-
-output "new_order" {
-  value = hashicups_order.new
-}
-
-
-# data "hashicups_order" "twenty_eight" {
-#   id = 36
-# }
-
-# output "twenty_eighth_order" {
-#   value = data.hashicups_order.twenty_eight
-# }
