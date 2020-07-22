@@ -1,14 +1,3 @@
-terraform {
-  required_providers {
-    hashicups = {
-      versions = ["0.2"]
-      source = "hashicorp.com/edu/hashicups"
-    }
-  }
-}
-
-provider "hashicups" {}
-
 module "psl" {
   source = "./coffee"
 
