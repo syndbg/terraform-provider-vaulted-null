@@ -1,3 +1,14 @@
+terraform {
+  required_providers {
+    hashicups = {
+      versions = ["0.2"]
+      source = "hashicorp.com/edu/hashicups"
+    }
+  }
+}
+
+provider "hashicups" {}
+
 variable "coffee_name" {
   type    = string
   default = "Vagrante espresso"
