@@ -7,8 +7,6 @@ terraform {
   }
 }
 
-provider "hashicups" {}
-
 variable "coffee_name" {
   type    = string
   default = "Vagrante espresso"
