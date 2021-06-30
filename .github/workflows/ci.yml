@@ -1,0 +1,75 @@
+name: CI
+on:
+  pull_request:
+    paths-ignore:
+      - 'README.md'
+    branches:
+      - master
+      - main
+  push:
+    branches:
+      - master
+      - main
+    paths-ignore:
+      - 'README.md'
+  schedule:
+    # NOTE: Run every day at 00:00, since we're using a remote API (TFE) not managed by us.
+    - cron: '0 0 * * *'
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2.1.3
+        with:
+          go-version: '1.16'
+        id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2.3.3
+      - name: Get dependencies
+        run: |
+          go mod download
+      - name: Build
+        run: |
+          go build -v .
+      - name: Download golangci-lint
+        run: |
+          curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.37.1
+      - name: Lint
+        run: |
+          go run mage.go -v lint
+
+  test:
+    name: Matrix Test
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        terraform:
+          - '0.13.4'
+          - '0.14.7'
+          - '1.0.0'
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2.1.3
+        with:
+          go-version: 1.16
+        id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2.3.3
+      - name: Get dependencies
+        run: |
+          go mod download
+      - name: TF acceptance tests
+        timeout-minutes: 10
+        env:
+          TF_ACC: "1"
+          TF_ACC_TERRAFORM_VERSION: ${{ matrix.terraform }}
+          TFE_TOKEN: ${{ secrets.TFE_TOKEN }}
+          TFE_TEST_WORKSPACE_ID: ${{ secrets.TFE_TEST_WORKSPACE_ID }}
+        run: |
+          go run mage.go test
