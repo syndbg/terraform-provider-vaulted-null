@@ -6,6 +6,7 @@ import (
 "log"
 
 "github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
+"github.com/syndbg/terraform-provider-vaulted-null/internal/provider"
 )
 
 // Run "go generate" to format example terraform files and generate the docs for the registry/website
@@ -34,10 +35,10 @@ func main() {
 	)
 	flag.Parse()
 
-	opts := &plugin.ServeOpts{ProviderFunc: provider.New(version)}
+	opts := &plugin.ServeOpts{ProviderFunc: provider.New()}
 
 	if debugMode {
-		err := plugin.Debug(context.Background(), "registry.terraform.io/syndbg/provider-null", opts)
+		err := plugin.Debug(context.Background(), "registry.terraform.io/syndbg/vaulted-null", opts)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
