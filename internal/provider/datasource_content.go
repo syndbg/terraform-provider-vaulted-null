@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -11,11 +12,11 @@ func dataSourceContent() *schema.Resource {
 		ReadContext: dataSourceContentRead,
 		Schema: map[string]*schema.Schema{
 			"content": {
-				Type: schema.TypeString,
+				Type:     schema.TypeString,
 				Required: true,
 			},
 			"decrypted": {
-				Type: schema.TypeString,
+				Type:     schema.TypeString,
 				Computed: true,
 			},
 		},
@@ -23,14 +24,22 @@ func dataSourceContent() *schema.Resource {
 }
 
 func dataSourceContentRead(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	metaClient := m.(*MetaClient)
+	metaClient, ok := m.(*MetaClient)
+	if !ok {
+		return diag.Errorf("unexpected meta client: %v", metaClient)
+	}
 
-	content := d.Get("content").(string)
+	content, ok := d.Get("content").(string)
+	if !ok {
+		return diag.Errorf("unexpected `content`, must be string: %v", metaClient)
+	}
+
 	decryptedContent, err := metaClient.DecryptValue(content)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	d.Set("decrypted", decryptedContent)
+	_ = d.Set("decrypted", decryptedContent)
+
 	return nil
 }

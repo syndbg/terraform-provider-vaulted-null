@@ -4,6 +4,7 @@ import (
 	"context"
 	stdRsa "crypto/rsa"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/palantir/stacktrace"
@@ -49,7 +50,7 @@ func (m *MetaClient) DecryptValue(encryptedValue string) (string, error) {
 
 // nolint:gochecknoinits
 func init() {
-// NOTE: Part of TF registry docs generation
+	// NOTE: Part of TF registry docs generation
 	schema.DescriptionKind = schema.StringMarkdown
 }
 
@@ -77,7 +78,7 @@ func New() func() *schema.Provider {
 			},
 		}
 
-		p.ConfigureContextFunc= configure()
+		p.ConfigureContextFunc = configure()
 
 		return p
 	}

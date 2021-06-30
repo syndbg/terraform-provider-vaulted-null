@@ -1,12 +1,13 @@
 package main
 
 import (
-"context"
-"flag"
-"log"
+	"context"
+	"flag"
+	"log"
 
-"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
-"github.com/syndbg/terraform-provider-vaulted-null/internal/provider"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
+
+	"github.com/syndbg/terraform-provider-vaulted-null/internal/provider"
 )
 
 // Run "go generate" to format example terraform files and generate the docs for the registry/website
@@ -21,7 +22,7 @@ import (
 
 // these will be set by the goreleaser configuration
 // to appropriate values for the compiled binary.
-var version = "dev" // goreleaser can also pass the specific commit if you want
+// var version = "dev" // goreleaser can also pass the specific commit if you want
 // commit  string = ""
 
 func main() {
