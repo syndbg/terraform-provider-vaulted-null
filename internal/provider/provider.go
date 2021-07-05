@@ -45,7 +45,9 @@ func (m *MetaClient) DecryptValue(encryptedValue string) (string, error) {
 		return "", stacktrace.Propagate(err, "unable to decrypt `value`")
 	}
 
-	return string(decryptedValue.Content.Plaintext), nil
+	plaintext := decryptedValue.Content.Plaintext
+
+	return string(plaintext), nil
 }
 
 // nolint:gochecknoinits
