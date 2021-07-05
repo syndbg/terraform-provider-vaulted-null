@@ -39,7 +39,10 @@ func dataSourceContentRead(_ context.Context, d *schema.ResourceData, m interfac
 		return diag.FromErr(err)
 	}
 
-	_ = d.Set("decrypted", decryptedContent)
+	err = d.Set("decrypted", decryptedContent)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	return nil
 }
