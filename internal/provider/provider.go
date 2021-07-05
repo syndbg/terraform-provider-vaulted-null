@@ -74,7 +74,7 @@ func New() func() *schema.Provider {
 				},
 			},
 			DataSourcesMap: map[string]*schema.Resource{
-				"vaulted_content": dataSourceContent(),
+				"vaulted_null_content": dataSourceContent(),
 			},
 		}
 
