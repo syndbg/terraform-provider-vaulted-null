@@ -95,7 +95,7 @@ func New() func() *schema.Provider {
 				},
 				"aws_region": {
 					Type:     schema.TypeString,
-					Required: true,
+					Optional: true,
 					DefaultFunc: schema.MultiEnvDefaultFunc([]string{
 						"AWS_REGION",
 						"AWS_DEFAULT_REGION",
