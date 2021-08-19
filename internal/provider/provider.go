@@ -173,7 +173,11 @@ func readAWScfg(ctx context.Context, d *schema.ResourceData) (*extaws.Config, er
 		return nil, errors.New("unexpected non-string `aws_region`")
 	}
 
-	awsCfgResolvers := []func(*awsconfig.LoadOptions) error{awsconfig.WithRegion(awsRegion)}
+	awsCfgResolvers := make([]func(*awsconfig.LoadOptions) error, 0)
+
+	if awsRegion != "" {
+		awsCfgResolvers = append(awsCfgResolvers, awsconfig.WithRegion(awsRegion))
+	}
 
 	awsProfile, ok := d.Get("aws_profile").(string)
 	if !ok {
@@ -191,7 +195,7 @@ func readAWScfg(ctx context.Context, d *schema.ResourceData) (*extaws.Config, er
 			return nil, errors.New("unexpected non-map with key string, value interface{} - `aws_assume_role[0]`")
 		}
 
-		awsconfig.WithAssumeRoleCredentialOptions(func(opts *stscreds.AssumeRoleOptions) {
+		sessionLoader := awsconfig.WithAssumeRoleCredentialOptions(func(opts *stscreds.AssumeRoleOptions) {
 			if v, ok := m["duration_seconds"].(int); ok && v != 0 {
 				opts.Duration = time.Second * time.Duration(v)
 			}
@@ -229,6 +233,8 @@ func readAWScfg(ctx context.Context, d *schema.ResourceData) (*extaws.Config, er
 				opts.RoleSessionName = v
 			}
 		})
+
+		awsCfgResolvers = append(awsCfgResolvers, sessionLoader)
 	}
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, awsCfgResolvers...)
