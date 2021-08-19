@@ -10,6 +10,7 @@ import (
 	extaws "github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go-v2/service/sts/types"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -188,6 +189,11 @@ func readAWScfg(ctx context.Context, d *schema.ResourceData) (*extaws.Config, er
 		awsCfgResolvers = append(awsCfgResolvers, awsconfig.WithSharedConfigProfile(awsProfile))
 	}
 
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, awsCfgResolvers...)
+	if err != nil {
+		return nil, err
+	}
+
 	awsAssumeRole, ok := d.Get("aws_assume_role").([]interface{})
 	if ok && len(awsAssumeRole) > 0 && awsAssumeRole[0] != nil {
 		m, ok := awsAssumeRole[0].(map[string]interface{})
@@ -195,51 +201,51 @@ func readAWScfg(ctx context.Context, d *schema.ResourceData) (*extaws.Config, er
 			return nil, errors.New("unexpected non-map with key string, value interface{} - `aws_assume_role[0]`")
 		}
 
-		sessionLoader := awsconfig.WithAssumeRoleCredentialOptions(func(opts *stscreds.AssumeRoleOptions) {
-			if v, ok := m["duration_seconds"].(int); ok && v != 0 {
-				opts.Duration = time.Second * time.Duration(v)
-			}
+		roleARN, ok := m["role_arn"].(string)
+		if !ok {
+			return nil, errors.New("unexpected non-string `role_arn`")
+		}
 
-			if v, ok := m["external_id"].(string); ok && v != "" {
-				opts.ExternalID = extaws.String(v)
-			}
-
-			if v, ok := m["policy"].(string); ok && v != "" {
-				opts.Policy = extaws.String(v)
-			}
-
-			if policyARNSet, ok := m["policy_arns"].(*schema.Set); ok && policyARNSet.Len() > 0 {
-				for _, policyARNRaw := range policyARNSet.List() {
-					policyARN, ok := policyARNRaw.(string)
-
-					if !ok {
-						continue
-					}
-
-					opts.PolicyARNs = append(
-						opts.PolicyARNs,
-						types.PolicyDescriptorType{
-							Arn: extaws.String(policyARN),
-						},
-					)
+		stsCreds := stscreds.NewAssumeRoleProvider(
+			sts.NewFromConfig(awsCfg),
+			roleARN,
+			func(opts *stscreds.AssumeRoleOptions) {
+				if v, ok := m["duration_seconds"].(int); ok && v != 0 {
+					opts.Duration = time.Second * time.Duration(v)
 				}
-			}
 
-			if v, ok := m["role_arn"].(string); ok && v != "" {
-				opts.RoleARN = v
-			}
+				if v, ok := m["external_id"].(string); ok && v != "" {
+					opts.ExternalID = extaws.String(v)
+				}
 
-			if v, ok := m["session_name"].(string); ok && v != "" {
-				opts.RoleSessionName = v
-			}
-		})
+				if v, ok := m["policy"].(string); ok && v != "" {
+					opts.Policy = extaws.String(v)
+				}
 
-		awsCfgResolvers = append(awsCfgResolvers, sessionLoader)
-	}
+				if policyARNSet, ok := m["policy_arns"].(*schema.Set); ok && policyARNSet.Len() > 0 {
+					for _, policyARNRaw := range policyARNSet.List() {
+						policyARN, ok := policyARNRaw.(string)
 
-	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, awsCfgResolvers...)
-	if err != nil {
-		return nil, err
+						if !ok {
+							continue
+						}
+
+						opts.PolicyARNs = append(
+							opts.PolicyARNs,
+							types.PolicyDescriptorType{
+								Arn: extaws.String(policyARN),
+							},
+						)
+					}
+				}
+
+				if v, ok := m["session_name"].(string); ok && v != "" {
+					opts.RoleSessionName = v
+				}
+			},
+		)
+
+		awsCfg.Credentials = extaws.NewCredentialsCache(stsCreds)
 	}
 
 	return &awsCfg, nil
