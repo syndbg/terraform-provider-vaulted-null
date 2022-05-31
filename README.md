@@ -21,11 +21,5 @@ Check out the [examples' main.tf](./examples/main.tf).
 
 ## Contributing
 
-### Build
-
-Run the following command to build the provider
-
-```shell
-go build 
-```
+Check out [CONTRIBUTING.md](./CONTRIBUTING.md)
 
