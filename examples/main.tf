@@ -8,6 +8,7 @@ terraform {
 
 provider "vaulted-null" {
   private_key_path = "./private.pem"
+  public_key_path = "./public.pem"
 }
 
 data "vaulted-null_content" "example" {
