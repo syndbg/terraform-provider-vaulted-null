@@ -103,6 +103,18 @@ func New() func() *schema.Provider {
 					}, nil),
 					Description: "AWS Region to use where `aws_kms_key_id` is present.",
 				},
+				"public_key_content": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					DefaultFunc: schema.EnvDefaultFunc("VAULTED_PUBLIC_KEY_CONTENT", ""),
+					Description: "Content of public key used to encrypt. This setting has higher priority than `public_key_path`.",
+				},
+				"public_key_path": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					DefaultFunc: schema.EnvDefaultFunc("VAULTED_PUBLIC_KEY_PATH", ""),
+					Description: "Path to public key used to decrypt. This setting has lower priority than `public_key_content`.",
+				},
 				"private_key_content": {
 					Type:        schema.TypeString,
 					Optional:    true,
@@ -118,6 +130,9 @@ func New() func() *schema.Provider {
 			},
 			DataSourcesMap: map[string]*schema.Resource{
 				"vaulted-null_content": dataSourceContent(),
+			},
+			ResourcesMap: map[string]*schema.Resource{
+				"vaulted-null_encrypt_content": resourceEncryptContent(),
 			},
 		}
 
@@ -136,6 +151,8 @@ func configure() func(context.Context, *schema.ResourceData) (interface{}, diag.
 
 		contentSvc := content.NewV1Service(b64Svc, aesSvc)
 
+		var payloadEncrypter PayloadEncrypter
+
 		var payloadDecrypter PayloadDecrypter
 
 		awsKMSkeyID, ok := d.Get("aws_kms_key_id").(string)
@@ -144,27 +161,53 @@ func configure() func(context.Context, *schema.ResourceData) (interface{}, diag.
 		}
 
 		if awsKMSkeyID == "" {
+			publicKey, err := readPublicKey(d, osExecutor, rsaSvc)
+			if err != nil {
+				return nil, diag.FromErr(err)
+			}
+
 			privateKey, err := readPrivateKey(d, osExecutor, rsaSvc)
 			if err != nil {
 				return nil, diag.FromErr(err)
 			}
 
+			passphraseEncrypter := passphrase.NewEncryptionRsaPKCS1v15Service(rsaSvc, publicKey)
+			contentEncrypter := content.NewV1Service(b64Svc, aesSvc)
+			payloadEncrypter = payload.NewEncryptionService(passphraseEncrypter, contentEncrypter)
+
 			passphraseDecrypter := passphrase.NewDecryptionRsaPKCS1v15Service(privateKey, rsaSvc)
 			payloadDecrypter = payload.NewDecryptionService(passphraseDecrypter, contentSvc)
 		} else {
+			// NOTE: AWS KMS Asymmetric encryption is assumed.
+			// Public key here would be one retrieved from AWS KMS.
+			publicKey, err := readPublicKey(d, osExecutor, rsaSvc)
+			if err != nil {
+				return nil, diag.FromErr(err)
+			}
+
 			awsCfg, err := readAWScfg(ctx, d)
 			if err != nil {
 				return nil, diag.FromErr(err)
 			}
 
 			awsSvc, _ := aws.NewService(awsCfg)
+			contentEncrypter := content.NewV1Service(b64Svc, aesSvc)
+			passphraseEncrypter := passphrase.NewEncRsaOaepService(rsaSvc, publicKey)
+			payloadEncrypter = payload.NewEncryptionService(passphraseEncrypter, contentEncrypter)
+
 			passphraseDecrypter := passphrase.NewDecryptionAwsKmsService(awsSvc, awsKMSkeyID)
+			// NOTE: Required by AWS KMS to use RSA-OAEP
 			payloadDecrypter = payload.NewDecryptionService(passphraseDecrypter, contentSvc)
 		}
 
-		payloadDeserializer := payload.NewSerdeService(b64Svc)
+		payloadSerdeSvc := payload.NewSerdeService(b64Svc)
 
-		return &MetaClient{payloadDecrypter: payloadDecrypter, payloadDeserializer: payloadDeserializer}, nil
+		return &MetaClient{
+			payloadSerializer:   payloadSerdeSvc,
+			payloadEncrypter:    payloadEncrypter,
+			payloadDeserializer: payloadSerdeSvc,
+			payloadDecrypter:    payloadDecrypter,
+		}, nil
 	}
 }
 
@@ -249,6 +292,95 @@ func readAWScfg(ctx context.Context, d *schema.ResourceData) (*extaws.Config, er
 	}
 
 	return &awsCfg, nil
+}
+
+func readPublicKey(
+	d *schema.ResourceData,
+	osExecutor os.OsExecutor,
+	rsaSvc *rsa.Service,
+) (*stdRsa.PublicKey, error) {
+	var publicKey *stdRsa.PublicKey
+
+	publicKeyContentTypeless := d.Get("public_key_content")
+	switch publicKeyContent := publicKeyContentTypeless.(type) {
+	case string:
+		if publicKeyContent != "" {
+			fd, nestedErr := osExecutor.TempFile("", "vaulted-public-key-from-content")
+			if nestedErr != nil {
+				return nil, stacktrace.NewError(
+					"failed to create temporary file for vaulted public key from content: %s",
+					nestedErr,
+				)
+			}
+
+			_, nestedErr = fd.WriteString(publicKeyContent)
+			if nestedErr != nil {
+				return nil, stacktrace.NewError(
+					"failed to write public key content to temporary file for vaulted public key: %s",
+					nestedErr,
+				)
+			}
+
+			nestedErr = fd.Sync()
+			if nestedErr != nil {
+				return nil, stacktrace.NewError(
+					"failed to sync public key content to temporary file for vaulted public key: %s",
+					nestedErr,
+				)
+			}
+
+			nestedErr = fd.Close()
+			if nestedErr != nil {
+				return nil, stacktrace.NewError(
+					"failed to close temporary file for vaulted public key from content: %s",
+					nestedErr,
+				)
+			}
+
+			key, readErr := rsaSvc.ReadPublicKeyFromPath(fd.Name())
+			if readErr != nil {
+				return nil, stacktrace.Propagate(readErr, "failed to read public key from path")
+			}
+
+			publicKey = key
+
+			// NOTE: Clean up the private key from the disk
+			nestedErr = osExecutor.Remove(fd.Name())
+			if nestedErr != nil {
+				return nil, stacktrace.NewError(
+					"failed to remove temporary file for vaulted public key from content: %s",
+					nestedErr,
+				)
+			}
+		}
+	default: // NOTE: Do nothing, try with `public_key_path`.
+	}
+
+	if publicKey == nil {
+		publicKeyPathTypeless := d.Get("public_key_path")
+		switch publicKeyPath := publicKeyPathTypeless.(type) {
+		case string:
+			if publicKeyPath != "" {
+				key, readErr := rsaSvc.ReadPublicKeyFromPath(publicKeyPath)
+				if readErr != nil {
+					return nil, fmt.Errorf("failed to read public key from path %s, err: %w", publicKeyPath, readErr)
+				}
+
+				publicKey = key
+			}
+		default:
+			return nil, stacktrace.NewError("non-string public_key_path. actual: %#v", publicKeyPath)
+		}
+	}
+
+	if publicKey == nil {
+		return nil, stacktrace.NewError(
+			"failed to read RSA public key from either `public_key_content` or" +
+				" `public_key_path` provider attributes",
+		)
+	}
+
+	return publicKey, nil
 }
 
 func readPrivateKey(

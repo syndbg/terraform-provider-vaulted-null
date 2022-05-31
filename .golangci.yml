@@ -84,6 +84,8 @@ linters:
     - ifshort
     # NOTE: Not that useful in the context of a terraform provider
     - goerr113
+    # NOTE: Disabled since there's really a lot of duplication between provider CRUD calls.
+    - dupl
 issues:
   exclude-rules:
     - text: "don't use an underscore in package name"
