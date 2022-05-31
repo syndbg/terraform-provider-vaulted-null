@@ -1,5 +1,7 @@
 # terraform-provider-vaulted-null
 
+Terraform Registry: https://registry.terraform.io/providers/syndbg/vaulted-null/latest
+
 Terraform provider utilizing [sumup-oss/vaulted](https://github.com/sumup-oss/vaulted) to provide a data source
  able to decrypt a vaulted encrypted payload. 
 
