@@ -13,6 +13,7 @@ func resourceEncryptContent() *schema.Resource {
 			"plaintext": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 			},
 			"encrypted": {
 				Type:     schema.TypeString,
