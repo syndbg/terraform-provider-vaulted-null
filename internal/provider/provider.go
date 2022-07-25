@@ -25,6 +25,8 @@ import (
 	"github.com/sumup-oss/vaulted/pkg/vaulted/content"
 	"github.com/sumup-oss/vaulted/pkg/vaulted/passphrase"
 	"github.com/sumup-oss/vaulted/pkg/vaulted/payload"
+
+	"github.com/syndbg/terraform-provider-vaulted-null/internal/vaulted"
 )
 
 func New() func() *schema.Provider {
@@ -175,8 +177,16 @@ func configure() func(context.Context, *schema.ResourceData) (interface{}, diag.
 			contentEncrypter := content.NewV1Service(b64Svc, aesSvc)
 			payloadEncrypter = payload.NewEncryptionService(passphraseEncrypter, contentEncrypter)
 
-			passphraseDecrypter := passphrase.NewDecryptionRsaPKCS1v15Service(privateKey, rsaSvc)
-			payloadDecrypter = payload.NewDecryptionService(passphraseDecrypter, contentSvc)
+			// NOTE: If there's no private key provided, the provider would be used for encryption-only resources
+			if privateKey == nil {
+				payloadDecrypter = vaulted.NewErrorDecryptionService(
+					"failed to read RSA private key from either `private_key_content` or " +
+						"`private_key_path` provider attributes",
+				)
+			} else {
+				passphraseDecrypter := passphrase.NewDecryptionRsaPKCS1v15Service(privateKey, rsaSvc)
+				payloadDecrypter = payload.NewDecryptionService(passphraseDecrypter, contentSvc)
+			}
 		} else {
 			// NOTE: AWS KMS Asymmetric encryption is assumed.
 			// Public key here would be one retrieved from AWS KMS.
@@ -457,16 +467,8 @@ func readPrivateKey(
 
 				privateKey = key
 			}
-		default:
-			return nil, stacktrace.NewError("non-string private_key_path. actual: %#v", privateKeyPath)
+		default: // NOTE: Do nothing, the provided can be used just for encrypting resources.
 		}
-	}
-
-	if privateKey == nil {
-		return nil, stacktrace.NewError(
-			"failed to read RSA private key from either `private_key_content` or" +
-				" `private_key_path` provider attributes",
-		)
 	}
 
 	return privateKey, nil
