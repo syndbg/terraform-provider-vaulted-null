@@ -10,6 +10,7 @@ import (
 	extaws "github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go-v2/service/sts/types"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -163,7 +164,7 @@ func configure() func(context.Context, *schema.ResourceData) (interface{}, diag.
 		}
 
 		if awsKMSkeyID == "" {
-			publicKey, err := readPublicKey(d, osExecutor, rsaSvc)
+			publicKey, err := readPublicKey(d, osExecutor, rsaSvc, nil)
 			if err != nil {
 				return nil, diag.FromErr(err)
 			}
@@ -188,19 +189,23 @@ func configure() func(context.Context, *schema.ResourceData) (interface{}, diag.
 				payloadDecrypter = payload.NewDecryptionService(passphraseDecrypter, contentSvc)
 			}
 		} else {
-			// NOTE: AWS KMS Asymmetric encryption is assumed.
-			// Public key here would be one retrieved from AWS KMS.
-			publicKey, err := readPublicKey(d, osExecutor, rsaSvc)
-			if err != nil {
-				return nil, diag.FromErr(err)
-			}
-
 			awsCfg, err := readAWScfg(ctx, d)
 			if err != nil {
 				return nil, diag.FromErr(err)
 			}
 
-			awsSvc, _ := aws.NewService(awsCfg)
+			awsSvc, err := aws.NewService(awsCfg)
+			if err != nil {
+				return nil, diag.FromErr(err)
+			}
+
+			kmsSvc := kms.NewFromConfig(*awsCfg)
+			// NOTE: AWS KMS Asymmetric encryption is assumed.
+			// Public key here would be one retrieved from AWS KMS.
+			publicKey, err := readPublicKey(d, osExecutor, rsaSvc, kmsSvc)
+			if err != nil {
+				return nil, diag.FromErr(err)
+			}
 			contentEncrypter := content.NewV1Service(b64Svc, aesSvc)
 			passphraseEncrypter := passphrase.NewEncRsaOaepService(rsaSvc, publicKey)
 			payloadEncrypter = payload.NewEncryptionService(passphraseEncrypter, contentEncrypter)
@@ -308,6 +313,7 @@ func readPublicKey(
 	d *schema.ResourceData,
 	osExecutor os.OsExecutor,
 	rsaSvc *rsa.Service,
+	kmsSvc *kms.Client,
 ) (*stdRsa.PublicKey, error) {
 	var publicKey *stdRsa.PublicKey
 
@@ -315,52 +321,10 @@ func readPublicKey(
 	switch publicKeyContent := publicKeyContentTypeless.(type) {
 	case string:
 		if publicKeyContent != "" {
-			fd, nestedErr := osExecutor.TempFile("", "vaulted-public-key-from-content")
-			if nestedErr != nil {
-				return nil, stacktrace.NewError(
-					"failed to create temporary file for vaulted public key from content: %s",
-					nestedErr,
-				)
-			}
-
-			_, nestedErr = fd.WriteString(publicKeyContent)
-			if nestedErr != nil {
-				return nil, stacktrace.NewError(
-					"failed to write public key content to temporary file for vaulted public key: %s",
-					nestedErr,
-				)
-			}
-
-			nestedErr = fd.Sync()
-			if nestedErr != nil {
-				return nil, stacktrace.NewError(
-					"failed to sync public key content to temporary file for vaulted public key: %s",
-					nestedErr,
-				)
-			}
-
-			nestedErr = fd.Close()
-			if nestedErr != nil {
-				return nil, stacktrace.NewError(
-					"failed to close temporary file for vaulted public key from content: %s",
-					nestedErr,
-				)
-			}
-
-			key, readErr := rsaSvc.ReadPublicKeyFromPath(fd.Name())
-			if readErr != nil {
-				return nil, stacktrace.Propagate(readErr, "failed to read public key from path")
-			}
-
-			publicKey = key
-
-			// NOTE: Clean up the private key from the disk
-			nestedErr = osExecutor.Remove(fd.Name())
-			if nestedErr != nil {
-				return nil, stacktrace.NewError(
-					"failed to remove temporary file for vaulted public key from content: %s",
-					nestedErr,
-				)
+			var err error
+			publicKey, err = publicKeyFromString(osExecutor, rsaSvc, publicKeyContent)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read public key, err: %w", err)
 			}
 		}
 	default: // NOTE: Do nothing, try with `public_key_path`.
@@ -380,6 +344,23 @@ func readPublicKey(
 			}
 		default:
 			return nil, stacktrace.NewError("non-string public_key_path. actual: %#v", publicKeyPath)
+		}
+	}
+
+	if publicKey == nil && kmsSvc != nil {
+		keyID := d.Get("aws_kms_key_id").(string)
+		input := &kms.GetPublicKeyInput{
+			KeyId: extaws.String(keyID),
+		}
+
+		result, err := kmsSvc.GetPublicKey(context.Background(), input)
+		if err != nil {
+			return nil, stacktrace.NewError("failed to read public key from KMS")
+		}
+
+		publicKey, err = publicKeyFromString(osExecutor, rsaSvc, string(result.PublicKey))
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -472,4 +453,53 @@ func readPrivateKey(
 	}
 
 	return privateKey, nil
+}
+
+func publicKeyFromString(osExec os.OsExecutor, rsaSvc *rsa.Service, publicKeyString string) (*stdRsa.PublicKey, error) {
+	fd, err := osExec.TempFile("", "vaulted-public-key-from-content")
+	if err != nil {
+		return nil, stacktrace.NewError(
+			"failed to create temporary file for vaulted public key from content: %s",
+			err,
+		)
+	}
+
+	_, err = fd.WriteString(publicKeyString)
+	if err != nil {
+		return nil, stacktrace.NewError(
+			"failed to write public key content to temporary file for vaulted public key: %s",
+			err,
+		)
+	}
+
+	err = fd.Sync()
+	if err != nil {
+		return nil, stacktrace.NewError(
+			"failed to sync public key content to temporary file for vaulted public key: %s",
+			err,
+		)
+	}
+
+	err = fd.Close()
+	if err != nil {
+		return nil, stacktrace.NewError(
+			"failed to close temporary file for vaulted public key from content: %s",
+			err,
+		)
+	}
+
+	key, err := rsaSvc.ReadPublicKeyFromPath(fd.Name())
+	if err != nil {
+		return nil, stacktrace.Propagate(err, "failed to read public key from path")
+	}
+
+	err = osExec.Remove(fd.Name())
+	if err != nil {
+		return nil, stacktrace.NewError(
+			"failed to remove temporary file for vaulted public key from content: %s",
+			err,
+		)
+	}
+
+	return key, nil
 }
