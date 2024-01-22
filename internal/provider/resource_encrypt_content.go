@@ -2,6 +2,10 @@ package provider
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"strconv"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -26,6 +30,20 @@ func resourceEncryptContent() *schema.Resource {
 	}
 }
 
+func generateHashedTimestamp(unixTimestamp int64) string {
+	timestampString := strconv.FormatInt(unixTimestamp, 10)
+	timestampBytes := []byte(timestampString)
+
+	hasher := sha256.New()
+	hasher.Write(timestampBytes)
+	hashedBytes := hasher.Sum(nil)
+
+	// Convert the hashed bytes to a hexadecimal string
+	hashedTimestamp := hex.EncodeToString(hashedBytes)
+
+	return hashedTimestamp
+}
+
 func resourceEncryptContentCreate(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	metaClient, ok := m.(*MetaClient)
 	if !ok {
@@ -41,12 +59,12 @@ func resourceEncryptContentCreate(_ context.Context, d *schema.ResourceData, m i
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
-	// NOTE: Set to something unique yet changing.
-	// Since this is just a resource that generates a computed value, there's no need for comparison.
-	d.SetId(plaintext)
+	currentTimeUnix := time.Now().Unix()
+	hashedTimestamp := generateHashedTimestamp(currentTimeUnix)
+	d.SetId(string(hashedTimestamp))
 
 	err = d.Set("encrypted", encryptedContent)
+
 	if err != nil {
 		return diag.FromErr(err)
 	}

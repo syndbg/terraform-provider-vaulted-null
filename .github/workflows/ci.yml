@@ -76,4 +76,4 @@ jobs:
           TFE_TOKEN: ${{ secrets.TFE_TOKEN }}
           TFE_TEST_WORKSPACE_ID: ${{ secrets.TFE_TEST_WORKSPACE_ID }}
         run: |
-          go run mage.go test
+          go run mage.go -v test
