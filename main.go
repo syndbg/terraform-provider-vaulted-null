@@ -1,11 +1,11 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"log"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov5/tf5server"
 
 	"github.com/syndbg/terraform-provider-vaulted-null/internal/provider"
 )
@@ -36,16 +36,17 @@ func main() {
 	)
 	flag.Parse()
 
-	opts := &plugin.ServeOpts{ProviderFunc: provider.New()}
-
+	var serveOpts []tf5server.ServeOpt
 	if debugMode {
-		err := plugin.Debug(context.Background(), "registry.terraform.io/syndbg/vaulted-null", opts)
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-
-		return
+		serveOpts = append(serveOpts, tf5server.WithManagedDebug())
 	}
 
-	plugin.Serve(opts)
+	err := tf5server.Serve(
+		"registry.terraform.io/syndbg/vaulted-null",
+		providerserver.NewProtocol5(provider.New("dev")()),
+		serveOpts...,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

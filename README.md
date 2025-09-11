@@ -110,12 +110,6 @@ provider "vaulted-null" {
   aws_kms_key_id = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
   aws_region     = "us-east-1"
   aws_profile    = "my-profile"  # optional
-
-  # Optional: Assume role
-  aws_assume_role {
-    role_arn     = "arn:aws:iam::123456789012:role/TerraformRole"
-    session_name = "terraform-session"
-  }
 }
 ```
 
@@ -212,9 +206,11 @@ resource "kubernetes_secret" "app_secret" {
 
 ## 🔧 Resources and Data Sources
 
-### `vaulted-null_encrypt_content` Resource
+### Traditional Resources (Stored in State)
 
-Encrypts plaintext content.
+#### `vaulted-null_encrypt_content` Resource
+
+Encrypts plaintext content and stores the result in state.
 
 ```hcl
 resource "vaulted-null_encrypt_content" "example" {
@@ -227,9 +223,9 @@ resource "vaulted-null_encrypt_content" "example" {
 - `encrypted` (string, computed) - The resulting encrypted payload
 - `id` (string, computed) - Resource identifier
 
-### `vaulted-null_content` Data Source
+#### `vaulted-null_content` Data Source
 
-Decrypts encrypted content.
+Decrypts encrypted content (⚠️ plaintext stored in state).
 
 ```hcl
 data "vaulted-null_content" "example" {
@@ -241,6 +237,111 @@ data "vaulted-null_content" "example" {
 - `content` (string, required) - The encrypted payload to decrypt
 - `decrypted` (string, computed) - The decrypted plaintext content
 - `id` (string, computed) - Data source identifier
+
+### 🔥 NEW: Ephemeral Resources (NOT Stored in State)
+
+**Requires Terraform 1.10+**
+
+Ephemeral resources provide maximum security by never storing sensitive data in Terraform state.
+
+#### `vaulted-null_encrypt` Ephemeral Resource
+
+Encrypts plaintext content temporarily during Terraform execution.
+
+```hcl
+ephemeral "vaulted-null_encrypt" "api_key" {
+  plaintext = "super-secret-api-key"
+}
+
+# Use immediately in other resources
+resource "kubernetes_secret" "app_secret" {
+  data = {
+    encrypted_key = ephemeral.vaulted-null_encrypt.api_key.encrypted
+  }
+}
+```
+
+**Attributes:**
+- `plaintext` (string, required, sensitive) - The plaintext content to encrypt
+- `encrypted` (string, computed) - The resulting encrypted payload
+- `id` (string, computed) - Resource identifier
+
+#### `vaulted-null_decrypt` Ephemeral Resource
+
+Decrypts content temporarily without storing plaintext in state.
+
+```hcl
+ephemeral "vaulted-null_decrypt" "db_password" {
+  content = var.encrypted_db_password
+}
+
+# Use immediately in provider configuration
+provider "postgresql" {
+  password = ephemeral.vaulted-null_decrypt.db_password.decrypted
+}
+```
+
+**Attributes:**
+- `content` (string, required) - The encrypted payload to decrypt
+- `decrypted` (string, computed, sensitive) - The decrypted plaintext content
+- `id` (string, computed) - Resource identifier
+
+### 🛡️ Security Comparison
+
+| Resource Type | Plaintext in State | Encrypted in State | Use Case |
+|---------------|-------------------|-------------------|----------|
+| **Traditional Resources** | ⚠️ Yes (data sources) | ✅ Yes | Basic encryption, less sensitive data |
+| **Ephemeral Resources** | ❌ Never | ❌ No (temporary only) | Maximum security, highly sensitive data |
+
+### 🔄 How Diffing Works
+
+Understanding how Terraform tracks changes is crucial for choosing the right resource type:
+
+#### Traditional Resources: State-Based Diffing
+```bash
+# When you change a secret:
+~ resource "vaulted-null_encrypt_content" "example" {
+    ~ plaintext = "old-secret" → "new-secret"
+    ~ encrypted = "old-encrypted" → (known after apply)
+  }
+```
+
+**Behavior:**
+- ✅ **Shows clear diffs** when inputs change
+- ✅ **Tracks history** in state file
+- ⚠️ **Stores sensitive data** in state
+
+#### Ephemeral Resources: No State Tracking
+```bash
+# When you change a secret:
+# (No diff shown for ephemeral resource itself)
+
+~ resource "kubernetes_secret" "app" {
+    ~ data = {
+        password = (sensitive value)
+      }
+  }
+```
+
+**Behavior:**
+- ❌ **No diffs shown** for ephemeral resources
+- ✅ **Downstream resources** show diffs
+- ✅ **Maximum security** - no state persistence
+- 🔄 **Recreated every run** regardless of changes
+
+#### When to Use Each
+
+**Use Traditional Resources when:**
+- You need to track changes over time
+- Security of state storage is acceptable
+- Working with less sensitive data
+- Debugging requires state inspection
+
+**Use Ephemeral Resources when:**
+- Maximum security is required
+- Secrets should never touch state files
+- Working with highly sensitive data (passwords, tokens)
+- State files might be compromised or shared
 
 ## 🔐 Security Best Practices
 
