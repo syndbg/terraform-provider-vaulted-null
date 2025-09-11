@@ -1,3 +1,5 @@
+version: 2
+
 run:
   tests: false
   # NOTE: Verify `go.{mod,sum}` is up-to-date by attempting to download dependencies
@@ -18,8 +20,6 @@ linters-settings:
   # print linter name in the end of issue text, default is true
   govet:
     check-shadowing: true
-  maligned:
-    suggest-new: true
   dupl:
     threshold: 100
   goconst:
@@ -54,23 +54,14 @@ linters-settings:
 linters:
   enable-all: true
   disable:
-    # NOTE: "effective" golang style is full of arguable practices.
-    # We don't need that and besides gofmt does the required minimum of style modifications.
-    - golint
     # NOTE: Too much false positives
     - unparam
     # NOTE: It's a great linter, but gets in the way too often by not being customizable.
     - gochecknoglobals
-    # NOTE: Full of false positives.
-    - interfacer
     # NOTE: Function length is not an offense.
     - funlen
     # TODO: Fix false positives
-    - gomnd
-    # NOTE: "Packages names should not use underscores" is not a good practice while mixed caps is also disallowed.
-    - stylecheck
-    # NOTE: Too verbose
-    - exhaustivestruct
+    - mnd
     # NOTE: Worse readability
     - nlreturn
     # NOTE: False-positives
@@ -79,11 +70,8 @@ linters:
     - wrapcheck
     # NOTE: More opinionated than useful
     - revive
-    # NOTE: Very bad practice in terms of readability and code consistency.
-    # Questionable benefit of saving 1 line of code.
-    - ifshort
     # NOTE: Not that useful in the context of a terraform provider
-    - goerr113
+    - err113
     # NOTE: Disabled since there's really a lot of duplication between provider CRUD calls.
     - dupl
 issues:
