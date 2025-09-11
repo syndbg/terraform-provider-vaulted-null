@@ -11,7 +11,9 @@ type ErrorDecryptionService struct {
 }
 
 func NewErrorDecryptionService(errorMsg string) *ErrorDecryptionService {
-	return &ErrorDecryptionService{}
+	return &ErrorDecryptionService{
+		errorMsg: errorMsg,
+	}
 }
 
 func (e *ErrorDecryptionService) Decrypt(encryptedPayload *payload.EncryptedPayload) (*payload.Payload, error) {

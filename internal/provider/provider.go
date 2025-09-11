@@ -69,7 +69,9 @@ func (p *Provider) Schema(ctx context.Context, req provider.SchemaRequest, resp 
 		Attributes: map[string]schema.Attribute{
 			"aws_kms_key_id": schema.StringAttribute{
 				MarkdownDescription: "Either AWS KMS key ARN or AWS KMS key alias, used to decrypt. " +
-					"Make sure AWS_REGION and/or AWS_PROFILE environment variables are pointing to an AWS account that has the given KMS key." +
+					"Make sure AWS_REGION and/or AWS_PROFILE environment variables are pointing to an AWS account that has the given KMS key. " +
+					"When specified, this enables AWS KMS decryption. For encryption, you can optionally provide a public key; " +
+					"if no public key is provided, only decryption will be available. " +
 					"This setting has higher priority than `private_key_content`.",
 				Optional: true,
 			},
@@ -161,15 +163,6 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 		}
 	} else {
 		// AWS KMS path
-		publicKey, err := p.readPublicKeyFromConfig(data, osExecutor, rsaSvc)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Failed to read public key",
-				err.Error(),
-			)
-			return
-		}
-
 		awsCfg, err := p.readAWSConfigFromConfig(ctx, data)
 		if err != nil {
 			resp.Diagnostics.AddError(
@@ -181,9 +174,24 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 
 		awsSvc, _ := aws.NewService(awsCfg)
 		contentEncrypter := content.NewV1Service(b64Svc, aesSvc)
-		passphraseEncrypter := passphrase.NewEncRsaOaepService(rsaSvc, publicKey)
-		payloadEncrypter = payload.NewEncryptionService(passphraseEncrypter, contentEncrypter)
 
+		// For AWS KMS, try to read public key, but make it optional
+		publicKey, err := p.readPublicKeyFromConfig(data, osExecutor, rsaSvc)
+		if err != nil {
+			// If no public key is provided, we can only decrypt (not encrypt)
+			// Create an error-only encrypter that explains the limitation
+			payloadEncrypter = vaulted.NewErrorEncryptionService(
+				"AWS KMS mode requires a public key for encryption. " +
+					"Please provide either 'public_key_content' or 'public_key_path' " +
+					"to enable encryption functionality.",
+			)
+		} else {
+			// Public key is available, enable encryption with RSA OAEP (KMS compatible)
+			passphraseEncrypter := passphrase.NewEncRsaOaepService(rsaSvc, publicKey)
+			payloadEncrypter = payload.NewEncryptionService(passphraseEncrypter, contentEncrypter)
+		}
+
+		// AWS KMS decryption always works regardless of public key availability
 		passphraseDecrypter := passphrase.NewDecryptionAwsKmsService(awsSvc, awsKMSkeyID)
 		payloadDecrypter = payload.NewDecryptionService(passphraseDecrypter, contentSvc)
 	}
@@ -220,8 +228,6 @@ func (p *Provider) EphemeralResources(ctx context.Context) []func() ephemeral.Ep
 		NewEphemeralDecryptResource,
 	}
 }
-
-// Helper functions replicated from SDK provider
 
 func (p *Provider) readPublicKeyFromConfig(
 	data ProviderModel,
