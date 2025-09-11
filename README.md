@@ -105,11 +105,31 @@ provider "vaulted-null" {
 
 #### AWS KMS Authentication
 
+AWS KMS can be used for decryption as an alternative to RSA private keys. You have two options:
+
+##### Option 1: Decryption-Only (KMS Only)
+
+Use this when you only need to decrypt existing content and don't need encryption capabilities.
+
 ```hcl
 provider "vaulted-null" {
   aws_kms_key_id = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
   aws_region     = "us-east-1"
   aws_profile    = "my-profile"  # optional
+}
+```
+
+##### Option 2: KMS + RSA (Full Functionality)
+
+Use this when you need both encryption and decryption capabilities.
+Note, you need to extract the public key from KMS.
+
+```hcl
+provider "vaulted-null" {
+  aws_kms_key_id      = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+  aws_region          = "us-east-1"
+  aws_profile         = "my-profile"  # optional
+  public_key_path     = "./public.pem"   # Required for encryption
 }
 ```
 
