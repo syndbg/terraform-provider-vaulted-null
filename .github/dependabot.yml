@@ -1,0 +1,65 @@
+version: 2
+updates:
+  # Enable version updates for Go modules
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "syndbg"
+    assignees:
+      - "syndbg"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # Enable version updates for Terraform
+  - package-ecosystem: "terraform"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "syndbg"
+    assignees:
+      - "syndbg"
+    commit-message:
+      prefix: "terraform"
+      include: "scope"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "syndbg"
+    assignees:
+      - "syndbg"
+    commit-message:
+      prefix: "actions"
+      include: "scope"
+
+  # Enable version updates for Terraform in examples directory
+  - package-ecosystem: "terraform"
+    directory: "/examples"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "syndbg"
+    assignees:
+      - "syndbg"
+    commit-message:
+      prefix: "terraform"
+      include: "scope"

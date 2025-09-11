@@ -1,7 +1,8 @@
 terraform {
   required_providers {
     vaulted-null = {
-      source = "syndbg/vaulted-null"
+      source = "registry.terraform.io/syndbg/vaulted-null"
+      # No version constraint needed with dev_overrides
     }
   }
 }
